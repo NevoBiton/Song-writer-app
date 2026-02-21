@@ -33,6 +33,8 @@ export default function App() {
     setActiveSong(null);
   }
 
+  console.log('Test')
+
   if (activeSong) {
     return (
       <SongEditor
