@@ -33,7 +33,7 @@ export default function App() {
     setActiveSong(null);
   }
 
-  console.log('Test')
+  console.log('Test1')
 
   if (activeSong) {
     return (
