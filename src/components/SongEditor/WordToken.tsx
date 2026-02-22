@@ -34,7 +34,7 @@ export default function WordToken({ text, chord, isSpace, isRTL, onWordClick, on
       </span>
       {/* Word below */}
       <span
-        className="token-word text-gray-100"
+        className="token-word text-foreground"
         onClick={onWordClick}
         role="button"
         tabIndex={0}

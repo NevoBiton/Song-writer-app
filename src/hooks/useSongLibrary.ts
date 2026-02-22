@@ -1,120 +1,163 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Song } from '../types';
 import { parseChordProDocument } from '../utils/chordParser';
-
-const LIBRARY_KEY = 'songwriter_library';
+import api from '@/lib/api';
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function now(): string {
-  return new Date().toISOString();
+// Map API song (snake_case timestamps, json sections) to frontend Song type
+export function apiToSong(data: Record<string, unknown>): Song {
+  return {
+    id: data.id as string,
+    title: data.title as string,
+    artist: (data.artist as string | null) || undefined,
+    key: (data.key as string | null) || undefined,
+    capo: (data.capo as number) ?? 0,
+    language: (data.language as Song['language']) || 'en',
+    sections: (data.sections as Song['sections']) || [],
+    createdAt: data.created_at as string,
+    updatedAt: data.updated_at as string,
+  };
 }
 
-function loadLibrary(): Song[] {
-  try {
-    const raw = localStorage.getItem(LIBRARY_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveLibrary(songs: Song[]): void {
-  localStorage.setItem(LIBRARY_KEY, JSON.stringify(songs));
-}
+const SONGS_KEY = ['songs'] as const;
 
 export function useSongLibrary() {
-  const [songs, setSongs] = useState<Song[]>(loadLibrary);
+  const client = useQueryClient();
 
-  // Persist on change
-  useEffect(() => {
-    saveLibrary(songs);
-  }, [songs]);
+  const { data: songs = [], isLoading: loading } = useQuery({
+    queryKey: SONGS_KEY,
+    queryFn: async () => {
+      const { data } = await api.get<Record<string, unknown>[]>('/songs');
+      return data.map(apiToSong).reverse(); // newest first
+    },
+  });
 
-  const createSong = useCallback((title: string, language: Song['language'] = 'en'): Song => {
-    const song: Song = {
-      id: uid(),
-      title: title || 'Untitled',
-      language,
-      sections: [
-        {
-          id: uid(),
-          type: 'verse',
-          label: language === 'he' ? 'בית 1' : 'Verse 1',
-          lines: [],
-        },
-      ],
-      createdAt: now(),
-      updatedAt: now(),
-    };
-    setSongs(prev => [song, ...prev]);
-    return song;
-  }, []);
+  const createMutation = useMutation({
+    mutationFn: async ({ title, language }: { title: string; language: Song['language'] }) => {
+      const payload = {
+        title: title || 'Untitled',
+        language,
+        sections: [
+          {
+            id: uid(),
+            type: 'verse',
+            label: language === 'he' ? 'בית 1' : 'Verse 1',
+            lines: [],
+          },
+        ],
+      };
+      const { data } = await api.post<Record<string, unknown>>('/songs', payload);
+      return apiToSong(data);
+    },
+    onSuccess: (newSong) => {
+      client.setQueryData<Song[]>(SONGS_KEY, (old = []) => [newSong, ...old]);
+    },
+  });
 
-  const deleteSong = useCallback((id: string) => {
-    setSongs(prev => prev.filter(s => s.id !== id));
-  }, []);
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/songs/${id}`);
+    },
+    onMutate: async (id: string) => {
+      client.setQueryData<Song[]>(SONGS_KEY, (old = []) => old.filter(s => s.id !== id));
+    },
+  });
 
-  const duplicateSong = useCallback((id: string): Song | undefined => {
-    const original = loadLibrary().find(s => s.id === id);
-    if (!original) return undefined;
-    const copy: Song = {
-      ...original,
-      id: uid(),
-      title: `${original.title} (copy)`,
-      createdAt: now(),
-      updatedAt: now(),
-    };
-    setSongs(prev => [copy, ...prev]);
-    return copy;
-  }, []);
+  const duplicateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const original = songs.find(s => s.id === id);
+      if (!original) throw new Error('Song not found');
+      const copy = {
+        title: `${original.title} (copy)`,
+        artist: original.artist,
+        key: original.key,
+        capo: original.capo,
+        language: original.language,
+        sections: original.sections,
+      };
+      const { data } = await api.post<Record<string, unknown>>('/songs', copy);
+      return apiToSong(data);
+    },
+    onSuccess: (newSong) => {
+      client.setQueryData<Song[]>(SONGS_KEY, (old = []) => [newSong, ...old]);
+    },
+  });
 
-  const updateSong = useCallback((song: Song) => {
-    setSongs(prev =>
-      prev.map(s => s.id === song.id ? { ...song, updatedAt: now() } : s)
-    );
-  }, []);
+  const updateMutation = useMutation({
+    mutationFn: async (song: Song) => {
+      const { data } = await api.put<Record<string, unknown>>(`/songs/${song.id}`, song);
+      return apiToSong(data);
+    },
+    onSuccess: (updated) => {
+      client.setQueryData<Song[]>(SONGS_KEY, (old = []) =>
+        old.map(s => (s.id === updated.id ? updated : s))
+      );
+    },
+  });
 
-  const searchSongs = useCallback((query: string): Song[] => {
-    const q = query.toLowerCase();
-    return songs.filter(s =>
-      s.title.toLowerCase().includes(q) ||
-      (s.artist && s.artist.toLowerCase().includes(q)) ||
-      (s.key && s.key.toLowerCase().includes(q))
-    );
-  }, [songs]);
+  const importMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const parsed = parseChordProDocument(text);
+      const payload = {
+        title: parsed.title || 'Imported Song',
+        artist: parsed.artist,
+        key: parsed.key,
+        language: 'en' as const,
+        sections:
+          parsed.sections.length > 0
+            ? parsed.sections
+            : [{ id: uid(), type: 'verse' as const, label: 'Verse 1', lines: [] }],
+      };
+      const { data } = await api.post<Record<string, unknown>>('/songs', payload);
+      return apiToSong(data);
+    },
+    onSuccess: (newSong) => {
+      client.setQueryData<Song[]>(SONGS_KEY, (old = []) => [newSong, ...old]);
+    },
+  });
 
-  const importChordPro = useCallback((text: string): Song => {
-    const parsed = parseChordProDocument(text);
-    const song: Song = {
-      id: uid(),
-      title: parsed.title || 'Imported Song',
-      artist: parsed.artist,
-      key: parsed.key,
-      language: 'en',
-      sections: parsed.sections.length > 0
-        ? parsed.sections
-        : [{ id: uid(), type: 'verse', label: 'Verse 1', lines: [] }],
-      createdAt: now(),
-      updatedAt: now(),
-    };
-    setSongs(prev => [song, ...prev]);
-    return song;
-  }, []);
+  const createSong = useCallback(
+    (title: string, language: Song['language'] = 'en') =>
+      createMutation.mutateAsync({ title, language }),
+    [createMutation]
+  );
 
-  const getSong = useCallback((id: string): Song | undefined => {
-    return songs.find(s => s.id === id);
-  }, [songs]);
+  const deleteSong = useCallback(
+    (id: string) => deleteMutation.mutateAsync(id),
+    [deleteMutation]
+  );
+
+  const duplicateSong = useCallback(
+    (id: string) => duplicateMutation.mutateAsync(id),
+    [duplicateMutation]
+  );
+
+  const updateSong = useCallback(
+    (song: Song) => updateMutation.mutateAsync(song),
+    [updateMutation]
+  );
+
+  const importChordPro = useCallback(
+    (text: string) => importMutation.mutateAsync(text),
+    [importMutation]
+  );
+
+  const getSong = useCallback(
+    (id: string) => songs.find(s => s.id === id),
+    [songs]
+  );
 
   return {
     songs,
+    loading,
     createSong,
     deleteSong,
     duplicateSong,
     updateSong,
-    searchSongs,
     importChordPro,
     getSong,
   };

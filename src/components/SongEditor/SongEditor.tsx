@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { ArrowLeft, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check } from 'lucide-react';
 import { Song, Section } from '../../types';
 import { useSong } from '../../hooks/useSong';
 import { sectionToPlainText } from '../../utils/chordParser';
 import { getAllKeys } from '../../utils/transpose';
 import ChordLine from './ChordLine';
 import ChordPicker from '../ChordPicker/ChordPicker';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 interface Props {
   song: Song;
@@ -21,12 +25,21 @@ type PickerTarget = {
 } | null;
 
 const SECTION_TYPE_COLORS: Record<Section['type'], string> = {
-  verse: 'text-blue-400',
-  chorus: 'text-amber-400',
-  bridge: 'text-purple-400',
-  intro: 'text-green-400',
-  outro: 'text-red-400',
-  custom: 'text-gray-400',
+  verse: 'text-blue-600',
+  chorus: 'text-amber-600',
+  bridge: 'text-purple-600',
+  intro: 'text-green-600',
+  outro: 'text-red-600',
+  custom: 'text-gray-500',
+};
+
+const SECTION_BADGE_COLORS: Record<Section['type'], string> = {
+  verse: 'bg-blue-50 text-blue-700 border-blue-200',
+  chorus: 'bg-amber-50 text-amber-700 border-amber-200',
+  bridge: 'bg-purple-50 text-purple-700 border-purple-200',
+  intro: 'bg-green-50 text-green-700 border-green-200',
+  outro: 'bg-red-50 text-red-700 border-red-200',
+  custom: 'bg-gray-50 text-gray-600 border-gray-200',
 };
 
 const SECTION_TYPES: Section['type'][] = ['verse', 'chorus', 'bridge', 'intro', 'outro', 'custom'];
@@ -59,12 +72,12 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   const [showSettings, setShowSettings] = useState(false);
   const [autoScroll, setAutoScroll] = useState(false);
   const [fontSize, setFontSize] = useState(18);
+  const [shareCopied, setShareCopied] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Check if the song has any lyrics at all
   const hasLyrics = song.sections.some(s => s.lines.some(l => l.tokens.some(t => !t.isSpace && t.text.trim())));
   const hasChords = song.sections.some(s => s.lines.some(l => l.tokens.some(t => t.chord)));
 
-  // Auto-scroll in preview mode
   useEffect(() => {
     if (!autoScroll || !previewMode) return;
     const interval = setInterval(() => {
@@ -73,7 +86,6 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     return () => clearInterval(interval);
   }, [autoScroll, previewMode]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
@@ -82,6 +94,31 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [undo, redo]);
+
+  // Auto-grow textarea when content changes
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [editText]);
+
+  const shareSong = useCallback(() => {
+    const lines: string[] = [`🎵 ${song.title}${song.artist ? ` — ${song.artist}` : ''}`, ''];
+    for (const section of song.sections) {
+      if (section.label) lines.push(`[ ${section.label} ]`);
+      for (const line of section.lines) {
+        const chordLine = line.tokens.map(t => (t.chord ? t.chord.padEnd(t.text.length || t.chord.length + 1) : ' '.repeat(Math.max(t.text.length, 1)))).join('');
+        const lyricLine = line.tokens.map(t => t.text).join('');
+        if (chordLine.trim()) lines.push(chordLine);
+        if (lyricLine.trim()) lines.push(lyricLine);
+      }
+      lines.push('');
+    }
+    navigator.clipboard.writeText(lines.join('\n'));
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2500);
+  }, [song]);
 
   function startEditSection(section: Section) {
     setEditingSectionId(section.id);
@@ -134,57 +171,76 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   const allKeys = getAllKeys();
 
   return (
-    <div className="flex flex-col h-screen bg-gray-950">
+    <div className="flex flex-col min-h-screen bg-background">
 
-      {/* ── Toolbar ───────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border-b border-gray-800 flex-shrink-0">
-        <button onClick={onBack} className="text-gray-400 hover:text-white p-2 touch-target rounded-lg" aria-label="Back to library">
-          ← Back
-        </button>
+      {/* ── Toolbar ─────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-card border-b border-border flex-shrink-0 shadow-sm">
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5 text-muted-foreground">
+          <ArrowLeft className="w-4 h-4" />
+          <span className="hidden sm:inline">Library</span>
+        </Button>
 
         <div className="flex-1 min-w-0 ml-1">
-          <div className="text-white font-semibold truncate text-sm">{song.title || 'Untitled'}</div>
-          {song.artist && <div className="text-gray-500 text-xs truncate">{song.artist}</div>}
+          <div className="text-foreground font-semibold truncate text-sm">{song.title || 'Untitled'}</div>
+          {song.artist && <div className="text-muted-foreground text-xs truncate">{song.artist}</div>}
         </div>
 
         {savedIndicator && (
-          <span className="text-green-400 text-xs flex-shrink-0 bg-green-400/10 px-2 py-1 rounded-lg">Saved ✓</span>
+          <Badge className="bg-green-100 text-green-700 border-green-200 text-xs flex-shrink-0">
+            Saved ✓
+          </Badge>
         )}
 
         <div className="flex items-center gap-1 flex-shrink-0">
           {!previewMode && (
             <>
-              <button onClick={undo} disabled={!canUndo} className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 touch-target" title="Undo (Ctrl+Z)">↩</button>
-              <button onClick={redo} disabled={!canRedo} className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 touch-target" title="Redo">↪</button>
+              <Button variant="ghost" size="icon" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)" className="text-muted-foreground">
+                <Undo2 className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={redo} disabled={!canRedo} title="Redo" className="text-muted-foreground">
+                <Redo2 className="w-4 h-4" />
+              </Button>
             </>
           )}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setShowSettings(s => !s)}
-            className={`p-1.5 touch-target rounded-lg transition-colors ${showSettings ? 'text-amber-400 bg-amber-400/10' : 'text-gray-400 hover:text-white'}`}
+            className={showSettings ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-muted-foreground'}
             title="Song settings"
           >
-            ⚙
-          </button>
+            <Settings className="w-4 h-4" />
+          </Button>
 
-          {/* Mode toggle — clearly visible */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={shareSong}
+            title="Copy song to clipboard"
+            className="text-muted-foreground"
+          >
+            {shareCopied ? <Check className="w-4 h-4 text-green-500" /> : <Share2 className="w-4 h-4" />}
+          </Button>
+
+          <Button
+            size="sm"
             onClick={() => setPreviewMode(m => !m)}
-            className={`px-3 py-1.5 text-sm font-semibold rounded-lg touch-target transition-colors ml-1 ${
+            className={`ml-1 gap-1.5 font-semibold border-0 ${
               previewMode
                 ? 'bg-blue-600 hover:bg-blue-500 text-white'
-                : 'bg-amber-500 hover:bg-amber-400 text-black'
+                : 'bg-amber-400 hover:bg-amber-500 text-gray-900'
             }`}
           >
-            {previewMode ? '✎ Edit' : '▶ View'}
-          </button>
+            {previewMode ? <><Edit3 className="w-3.5 h-3.5" /> Edit</> : <><Eye className="w-3.5 h-3.5" /> View</>}
+          </Button>
         </div>
       </div>
 
-      {/* ── How-to hint (edit mode, no lyrics yet) ─────────────────── */}
+      {/* ── How-to hint ─────────────────────────────────────────────── */}
       {!previewMode && !hasLyrics && (
-        <div className="bg-blue-900/30 border-b border-blue-800/40 px-4 py-3 flex-shrink-0">
-          <p className="text-blue-300 text-sm font-semibold mb-1">How to use:</p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-blue-200">
+        <div className="bg-blue-50 border-b border-blue-100 px-4 py-3 flex-shrink-0">
+          <p className="text-blue-700 text-sm font-semibold mb-1">How to use:</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-blue-600">
             <span>① Click <strong>"Add lyrics"</strong> below → type your song</span>
             <span>② Click any <strong>word</strong> → pick a chord that appears above it</span>
             <span>③ Click <strong>"View"</strong> to see the final result</span>
@@ -192,63 +248,62 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
         </div>
       )}
 
-      {/* ── Chord tip (lyrics exist, no chords yet) ─────────────────── */}
       {!previewMode && hasLyrics && !hasChords && (
-        <div className="bg-amber-900/20 border-b border-amber-800/30 px-4 py-2 flex-shrink-0">
-          <p className="text-amber-300 text-xs">
+        <div className="bg-amber-50 border-b border-amber-100 px-4 py-2 flex-shrink-0">
+          <p className="text-amber-700 text-xs">
             💡 <strong>Tap any word</strong> in your lyrics to add a chord above it
           </p>
         </div>
       )}
 
-      {/* ── Settings panel ───────────────────────────────────────── */}
+      {/* ── Settings panel ──────────────────────────────────────────── */}
       {showSettings && (
-        <div className="bg-gray-900 border-b border-gray-800 px-3 py-3 flex-shrink-0">
+        <div className="bg-muted border-b border-border px-3 py-3 flex-shrink-0">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
             <div>
-              <label className="text-gray-400 text-xs block mb-1">Title</label>
-              <input
+              <label className="text-muted-foreground text-xs block mb-1">Title</label>
+              <Input
                 value={song.title}
                 onChange={e => updateTitle(e.target.value)}
-                className="w-full bg-gray-800 text-white rounded px-2 py-1 text-sm border border-gray-700 focus:border-amber-400 focus:outline-none"
+                className="h-8 text-sm focus-visible:ring-amber-400"
               />
             </div>
             <div>
-              <label className="text-gray-400 text-xs block mb-1">Artist</label>
-              <input
+              <label className="text-muted-foreground text-xs block mb-1">Artist</label>
+              <Input
                 value={song.artist || ''}
                 onChange={e => updateArtist(e.target.value)}
-                className="w-full bg-gray-800 text-white rounded px-2 py-1 text-sm border border-gray-700 focus:border-amber-400 focus:outline-none"
+                className="h-8 text-sm focus-visible:ring-amber-400"
               />
             </div>
             <div>
-              <label className="text-gray-400 text-xs block mb-1">Key</label>
+              <label className="text-muted-foreground text-xs block mb-1">Key</label>
               <select
                 value={song.key || ''}
                 onChange={e => updateKey(e.target.value)}
-                className="w-full bg-gray-800 text-white rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none"
+                className="w-full h-8 bg-background text-foreground rounded-md px-2 py-1 text-sm border border-input focus:outline-none focus:ring-1 focus:ring-amber-400"
               >
                 <option value="">—</option>
                 {allKeys.map(k => <option key={k} value={k}>{k}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-gray-400 text-xs block mb-1">Capo</label>
-              <input
+              <label className="text-muted-foreground text-xs block mb-1">Capo</label>
+              <Input
                 type="number" min={0} max={12}
                 value={song.capo ?? 0}
                 onChange={e => updateCapo(Number(e.target.value))}
-                className="w-full bg-gray-800 text-white rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none"
+                className="h-8 text-sm focus-visible:ring-amber-400"
               />
             </div>
           </div>
           <div className="flex flex-wrap gap-3 mt-3 items-center">
             <div>
-              <label className="text-gray-400 text-xs block mb-1">Language</label>
+              <label className="text-muted-foreground text-xs block mb-1">Language</label>
               <select
                 value={song.language}
                 onChange={e => updateLanguage(e.target.value as Song['language'])}
-                className="bg-gray-800 text-white rounded px-2 py-1 text-sm border border-gray-700 focus:outline-none"
+                className="bg-background text-foreground rounded-md px-2 py-1 text-sm border border-input focus:outline-none focus:ring-1 focus:ring-amber-400"
               >
                 <option value="en">English</option>
                 <option value="he">Hebrew / עברית</option>
@@ -256,49 +311,51 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
               </select>
             </div>
             <div>
-              <label className="text-gray-400 text-xs block mb-1">Transpose</label>
+              <label className="text-muted-foreground text-xs block mb-1">Transpose</label>
               <div className="flex gap-1">
-                <button onClick={() => transpose(-1)} className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm touch-target">−1</button>
-                <button onClick={() => transpose(1)} className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm touch-target">+1</button>
+                <Button variant="outline" size="sm" onClick={() => transpose(-1)} className="h-8 px-2">−1</Button>
+                <Button variant="outline" size="sm" onClick={() => transpose(1)} className="h-8 px-2">+1</Button>
               </div>
             </div>
             <div>
-              <label className="text-gray-400 text-xs block mb-1">Export</label>
-              <button
+              <label className="text-gray-500 text-xs block mb-1">Export</label>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => navigator.clipboard.writeText(exportChordPro())}
-                className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm touch-target"
+                className="h-8 text-xs"
               >
                 Copy ChordPro
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Preview controls ─────────────────────────────────────── */}
+      {/* ── Preview controls ─────────────────────────────────────────── */}
       {previewMode && (
-        <div className="bg-gray-900 border-b border-gray-800 px-3 py-2 flex items-center gap-4 flex-shrink-0">
-          <label className="flex items-center gap-1.5 text-gray-300 text-sm cursor-pointer">
-            <input type="checkbox" checked={showChords} onChange={e => setShowChords(e.target.checked)} className="accent-amber-400" />
+        <div className="bg-muted border-b border-border px-3 py-2 flex items-center gap-4 flex-shrink-0">
+          <label className="flex items-center gap-1.5 text-muted-foreground text-sm cursor-pointer">
+            <input type="checkbox" checked={showChords} onChange={e => setShowChords(e.target.checked)} className="accent-amber-500" />
             Show chords
           </label>
-          <label className="flex items-center gap-1.5 text-gray-300 text-sm cursor-pointer">
-            <input type="checkbox" checked={autoScroll} onChange={e => setAutoScroll(e.target.checked)} className="accent-amber-400" />
+          <label className="flex items-center gap-1.5 text-muted-foreground text-sm cursor-pointer">
+            <input type="checkbox" checked={autoScroll} onChange={e => setAutoScroll(e.target.checked)} className="accent-amber-500" />
             Auto-scroll
           </label>
           <div className="flex items-center gap-2 ml-auto">
-            <span className="text-gray-500 text-xs">A</span>
+            <span className="text-muted-foreground text-xs">A</span>
             <input
               type="range" min={14} max={28} value={fontSize}
               onChange={e => setFontSize(Number(e.target.value))}
-              className="w-20 accent-amber-400"
+              className="w-20 accent-amber-500"
             />
-            <span className="text-gray-200 text-base font-semibold">A</span>
+            <span className="text-foreground text-base font-semibold">A</span>
           </div>
         </div>
       )}
 
-      {/* ── Main content ─────────────────────────────────────────── */}
+      {/* ── Main content ─────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-4 py-4" style={{ fontSize: previewMode ? fontSize : undefined }}>
         {song.sections.map(section => (
           <div key={section.id} className="mb-8">
@@ -316,13 +373,13 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                   <input
                     value={section.label || ''}
                     onChange={e => updateSectionLabel(section.id, e.target.value)}
-                    className="text-gray-300 text-sm bg-transparent border-none focus:outline-none flex-1"
+                    className="text-muted-foreground text-sm bg-transparent border-none focus:outline-none flex-1 focus:ring-0"
                     placeholder="Label..."
                   />
                   {song.sections.length > 1 && (
                     <button
                       onClick={() => removeSection(section.id)}
-                      className="text-gray-600 hover:text-red-400 text-xs px-1 touch-target"
+                      className="text-muted-foreground hover:text-red-400 text-xs px-1 touch-target"
                       title="Remove section"
                     >
                       ✕
@@ -330,7 +387,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                   )}
                 </>
               ) : (
-                <span className={`text-sm font-bold uppercase tracking-wide ${SECTION_TYPE_COLORS[section.type]}`}>
+                <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${SECTION_BADGE_COLORS[section.type]}`}>
                   {section.label || section.type}
                 </span>
               )}
@@ -338,34 +395,34 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
 
             {/* Section content */}
             {!previewMode && editingSectionId === section.id ? (
-              /* Lyrics textarea */
               <textarea
+                ref={editingSectionId === section.id ? textareaRef : undefined}
                 value={editText}
                 onChange={e => setEditText(e.target.value)}
                 onBlur={() => finishEdit(section.id)}
                 autoFocus
                 dir={song.language === 'he' ? 'rtl' : 'auto'}
-                className="w-full bg-gray-800 text-gray-100 rounded-xl px-3 py-2.5 text-base border-2 border-amber-400 focus:outline-none resize-none min-h-[100px] leading-relaxed"
+                rows={6}
+                className="w-full bg-background text-foreground rounded-xl px-3 py-2.5 text-base border-2 border-amber-400 focus:outline-none resize-none min-h-[140px] leading-relaxed overflow-hidden"
                 placeholder={song.language === 'he' ? 'הקלד מילות השיר כאן...' : 'Type your lyrics here, one line per line...'}
+                style={{ height: 'auto' }}
               />
             ) : (
               <div className="rounded-xl">
                 {section.lines.length === 0 && !previewMode ? (
-                  /* Empty section CTA */
                   <button
-                    className="w-full border-2 border-dashed border-gray-700 hover:border-amber-500 rounded-xl py-5 text-center transition-colors group"
+                    className="w-full border-2 border-dashed border-border hover:border-amber-400 rounded-xl py-5 text-center transition-colors group"
                     onClick={() => startEditSection(section)}
                   >
                     <div className="text-2xl mb-1">✍️</div>
-                    <div className="text-amber-400 font-semibold text-sm group-hover:text-amber-300">
+                    <div className="text-amber-500 font-semibold text-sm group-hover:text-amber-600">
                       Add lyrics
                     </div>
-                    <div className="text-gray-600 text-xs mt-0.5">Click to type your song words</div>
+                    <div className="text-muted-foreground text-xs mt-0.5">Click to type your song words</div>
                   </button>
                 ) : (
                   <>
-                    {/* Chord lines */}
-                    <div className={`px-1 ${!previewMode ? 'rounded-xl border border-transparent hover:border-gray-700 hover:bg-gray-900/40 cursor-pointer' : ''}`}>
+                    <div className={`px-1 ${!previewMode ? 'rounded-xl border border-transparent hover:border-border hover:bg-accent cursor-pointer' : ''}`}>
                       {section.lines.map(line => (
                         <ChordLine
                           key={line.id}
@@ -376,13 +433,12 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                         />
                       ))}
                     </div>
-                    {/* Edit lyrics button */}
                     {!previewMode && (
                       <button
-                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 bg-gray-800/50 hover:bg-gray-800 rounded-lg transition-colors touch-target"
+                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted hover:bg-accent rounded-lg transition-colors touch-target border border-border"
                         onClick={() => startEditSection(section)}
                       >
-                        ✎ Edit lyrics
+                        <Edit3 className="w-3 h-3" /> Edit lyrics
                       </button>
                     )}
                   </>
@@ -394,13 +450,15 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
 
         {/* Add section buttons */}
         {!previewMode && (
-          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-800">
-            <span className="text-gray-500 text-xs self-center mr-1">+ Add section:</span>
+          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
+            <span className="text-muted-foreground text-xs self-center mr-1">
+              <Plus className="w-3 h-3 inline" /> Add section:
+            </span>
             {(['verse', 'chorus', 'bridge', 'intro', 'outro'] as Section['type'][]).map(type => (
               <button
                 key={type}
                 onClick={() => addSection(type)}
-                className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg capitalize touch-target border border-gray-700 hover:border-gray-500 transition-colors"
+                className={`px-3 py-1.5 text-xs rounded-lg capitalize touch-target border transition-colors ${SECTION_BADGE_COLORS[type]}`}
               >
                 {type}
               </button>
@@ -408,23 +466,22 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
           </div>
         )}
 
-        {/* Bottom padding so FAB doesn't cover last line */}
         {previewMode && <div className="h-20" />}
       </div>
 
-      {/* ── Floating "Edit" button in view mode ───────────────────── */}
+      {/* ── Floating "Edit" button in view mode ─────────────────────── */}
       {previewMode && (
         <div className="fixed bottom-6 right-6 z-30">
-          <button
+          <Button
             onClick={() => setPreviewMode(false)}
-            className="flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl shadow-2xl text-sm transition-colors touch-target"
+            className="gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl shadow-2xl px-5"
           >
-            ✎ Edit Song
-          </button>
+            <Edit3 className="w-4 h-4" /> Edit Song
+          </Button>
         </div>
       )}
 
-      {/* ── Chord Picker ─────────────────────────────────────────── */}
+      {/* ── Chord Picker ─────────────────────────────────────────────── */}
       <ChordPicker
         isOpen={pickerTarget !== null}
         onClose={() => setPickerTarget(null)}

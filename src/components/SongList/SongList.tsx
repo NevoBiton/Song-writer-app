@@ -1,18 +1,35 @@
 import React, { useState } from 'react';
+import { Plus, Music, Search, Share2, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import { Song } from '../../types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 interface Props {
   songs: Song[];
+  loading?: boolean;
   onSelectSong: (song: Song) => void;
-  onCreateSong: (title: string, language: Song['language']) => Song;
-  onDeleteSong: (id: string) => void;
-  onDuplicateSong: (id: string) => Song | undefined;
-  onImportChordPro: (text: string) => Song;
+  onCreateSong: (title: string, language: Song['language']) => Promise<Song>;
+  onDeleteSong: (id: string) => Promise<void>;
+  onDuplicateSong: (id: string) => Promise<Song | undefined>;
   isMobile?: boolean;
 }
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+function timeAgo(iso: string | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
@@ -22,18 +39,53 @@ function timeAgo(iso: string): string {
   return `${days}d ago`;
 }
 
+function formatSongForShare(song: Song): string {
+  const lines: string[] = [];
+  if (song.title) lines.push(song.title);
+  if (song.artist) lines.push(`by ${song.artist}`);
+  if (song.key) lines.push(`Key: ${song.key}`);
+  lines.push('');
+  for (const section of song.sections) {
+    if (section.label) lines.push(`[${section.label}]`);
+    for (const line of section.lines) {
+      const chordLine = line.tokens.map(t => t.chord ? t.chord.padEnd(Math.max(t.chord.length, t.text.length + 1)) : ' '.repeat(t.text.length + 1)).join('').trimEnd();
+      const wordLine = line.tokens.map(t => t.text).join('');
+      if (chordLine.trim()) lines.push(chordLine);
+      if (wordLine.trim()) lines.push(wordLine);
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
 const LANG_LABELS: Record<string, string> = {
   en: 'EN', he: 'עב', mixed: 'EN/עב',
 };
 
-export default function SongList({ songs, onSelectSong, onCreateSong, onDeleteSong, onDuplicateSong, onImportChordPro }: Props) {
+const SECTION_TYPE_COLORS: Record<string, string> = {
+  verse: 'bg-blue-100 text-blue-700',
+  chorus: 'bg-amber-100 text-amber-700',
+  bridge: 'bg-purple-100 text-purple-700',
+  intro: 'bg-green-100 text-green-700',
+  outro: 'bg-red-100 text-red-700',
+  custom: 'bg-gray-100 text-gray-700',
+};
+
+export default function SongList({
+  songs,
+  loading,
+  onSelectSong,
+  onCreateSong,
+  onDeleteSong,
+  onDuplicateSong,
+}: Props) {
   const [query, setQuery] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newLang, setNewLang] = useState<Song['language']>('en');
-  const [showImport, setShowImport] = useState(false);
-  const [importText, setImportText] = useState('');
   const [contextMenu, setContextMenu] = useState<{ songId: string; x: number; y: number } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const filtered = query
     ? songs.filter(s =>
@@ -42,20 +94,32 @@ export default function SongList({ songs, onSelectSong, onCreateSong, onDeleteSo
       )
     : songs;
 
-  function handleCreate() {
+  async function handleCreate() {
     if (!newTitle.trim()) return;
-    const song = onCreateSong(newTitle.trim(), newLang);
-    setShowCreate(false);
-    setNewTitle('');
-    onSelectSong(song);
+    setCreating(true);
+    try {
+      const song = await onCreateSong(newTitle.trim(), newLang);
+      setShowCreate(false);
+      setNewTitle('');
+      onSelectSong(song);
+    } finally {
+      setCreating(false);
+    }
   }
 
-  function handleImport() {
-    if (!importText.trim()) return;
-    const song = onImportChordPro(importText);
-    setShowImport(false);
-    setImportText('');
-    onSelectSong(song);
+  async function handleShare(songId: string) {
+    const song = songs.find(s => s.id === songId);
+    if (!song) return;
+    const text = formatSongForShare(song);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(songId);
+      toast.success(`"${song.title}" copied to clipboard`);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      toast.error('Failed to copy to clipboard');
+    }
+    setContextMenu(null);
   }
 
   function handleContextMenu(e: React.MouseEvent, songId: string) {
@@ -63,104 +127,135 @@ export default function SongList({ songs, onSelectSong, onCreateSong, onDeleteSo
     setContextMenu({ songId, x: e.clientX, y: e.clientY });
   }
 
-  return (
-    <div className="flex flex-col h-screen bg-gray-950" onClick={() => setContextMenu(null)}>
-      {/* Header */}
-      <div className="px-4 pt-6 pb-3 bg-gray-950 flex-shrink-0">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">SongWriter Pro</h1>
-            <p className="text-amber-400 text-sm">מחברת שירים</p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowImport(true)}
-              className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-sm touch-target"
-            >
-              Import
-            </button>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-sm touch-target"
-            >
-              + New Song
-            </button>
-          </div>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-muted-foreground text-sm">Loading your songs...</p>
         </div>
+      </div>
+    );
+  }
 
-        {/* Search */}
-        <input
+  return (
+    <div className="space-y-6" onClick={() => setContextMenu(null)}>
+      {/* Page header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">My Song Library</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            {songs.length} {songs.length === 1 ? 'song' : 'songs'} in your collection
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => setShowCreate(true)}
+          className="gap-1.5 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
+        >
+          <Plus className="w-4 h-4" />
+          New Song
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Input
           type="search"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="Search songs..."
-          className="w-full bg-gray-800 text-white rounded-xl px-4 py-2.5 text-sm border border-gray-700 focus:border-amber-400 focus:outline-none"
+          placeholder="Search songs by title or artist..."
+          className="pl-9 focus-visible:ring-amber-400"
         />
       </div>
 
-      {/* Song list */}
-      <div className="flex-1 overflow-y-auto px-4 py-2">
-        {filtered.length === 0 && !query ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 pb-16">
-            <div className="text-6xl">🎸</div>
-            <div className="text-center">
-              <h2 className="text-xl font-bold text-white mb-1">No songs yet</h2>
-              <p className="text-gray-500 text-sm mb-4">Create your first song to get started</p>
-              <button
-                onClick={() => setShowCreate(true)}
-                className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl text-base touch-target"
-              >
-                Create your first song
-              </button>
-            </div>
+      {/* Song grid */}
+      {filtered.length === 0 && !query ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <div className="w-20 h-20 rounded-full bg-amber-50 flex items-center justify-center">
+            <Music className="w-10 h-10 text-amber-400" />
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            No songs match "{query}"
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-foreground mb-1">No songs yet</h2>
+            <p className="text-muted-foreground text-sm mb-6">Create your first song to get started</p>
+            <Button
+              onClick={() => setShowCreate(true)}
+              className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create your first song
+            </Button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filtered.map(song => (
-              <div
-                key={song.id}
-                className="bg-gray-900 hover:bg-gray-800 rounded-2xl p-4 cursor-pointer border border-gray-800 hover:border-gray-700 transition-all"
-                onClick={() => onSelectSong(song)}
-                onContextMenu={e => handleContextMenu(e, song.id)}
-              >
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          No songs match &ldquo;{query}&rdquo;
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(song => (
+            <Card
+              key={song.id}
+              className="cursor-pointer border-border hover:border-amber-300 hover:shadow-md transition-all group"
+              onClick={() => onSelectSong(song)}
+              onContextMenu={e => handleContextMenu(e, song.id)}
+            >
+              <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="text-white font-semibold truncate text-base">{song.title}</h3>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-foreground truncate group-hover:text-amber-600 transition-colors">
+                      {song.title}
+                    </h3>
                     {song.artist && (
-                      <p className="text-gray-400 text-sm truncate">{song.artist}</p>
+                      <p className="text-muted-foreground text-sm truncate mt-0.5">{song.artist}</p>
                     )}
                   </div>
-                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     {song.key && (
-                      <span className="text-amber-400 text-xs font-mono font-bold bg-amber-400/10 px-2 py-0.5 rounded-full">
+                      <span className="text-amber-600 text-xs font-mono font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                         {song.key}
                       </span>
                     )}
-                    <span className="text-gray-600 text-xs">
+                    <Badge variant="secondary" className="text-xs px-1.5">
                       {LANG_LABELS[song.language] || 'EN'}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
-                <div className="flex items-center justify-between mt-3">
-                  <span className="text-gray-600 text-xs">{timeAgo(song.updatedAt)}</span>
-                  <span className="text-gray-600 text-xs">
+
+                {/* Section type pills */}
+                {song.sections.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-3">
+                    {song.sections.slice(0, 4).map(section => (
+                      <span
+                        key={section.id}
+                        className={`text-xs px-1.5 py-0.5 rounded font-medium ${SECTION_TYPE_COLORS[section.type] || SECTION_TYPE_COLORS.custom}`}
+                      >
+                        {section.label || section.type}
+                      </span>
+                    ))}
+                    {song.sections.length > 4 && (
+                      <span className="text-xs text-gray-400">+{song.sections.length - 4}</span>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+                  <span className="text-muted-foreground text-xs">{timeAgo(song.updatedAt)}</span>
+                  <span className="text-muted-foreground text-xs">
                     {song.sections.length} section{song.sections.length !== 1 ? 's' : ''}
                   </span>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Context menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-gray-800 rounded-xl shadow-xl border border-gray-700 py-1 min-w-[150px]"
+          className="fixed z-50 bg-card rounded-xl shadow-xl border border-border py-1 min-w-[160px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={e => e.stopPropagation()}
         >
@@ -170,20 +265,35 @@ export default function SongList({ songs, onSelectSong, onCreateSong, onDeleteSo
               if (s) onSelectSong(s);
               setContextMenu(null);
             }}
-            className="w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700"
+            className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent"
           >
             ✎ Edit
           </button>
           <button
-            onClick={() => { onDuplicateSong(contextMenu.songId); setContextMenu(null); }}
-            className="w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700"
+            onClick={async () => {
+              await onDuplicateSong(contextMenu.songId);
+              setContextMenu(null);
+            }}
+            className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent"
           >
             ⎘ Duplicate
           </button>
-          <hr className="border-gray-700 my-1" />
           <button
-            onClick={() => { onDeleteSong(contextMenu.songId); setContextMenu(null); }}
-            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700"
+            onClick={() => handleShare(contextMenu.songId)}
+            className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center gap-2"
+          >
+            {copiedId === contextMenu.songId
+              ? <Check className="w-3.5 h-3.5 text-green-500" />
+              : <Share2 className="w-3.5 h-3.5" />}
+            Share
+          </button>
+          <hr className="border-border my-1" />
+          <button
+            onClick={async () => {
+              await onDeleteSong(contextMenu.songId);
+              setContextMenu(null);
+            }}
+            className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10"
           >
             🗑 Delete
           </button>
@@ -191,92 +301,58 @@ export default function SongList({ songs, onSelectSong, onCreateSong, onDeleteSo
       )}
 
       {/* Create dialog */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-sm border border-gray-700 shadow-2xl">
-            <h2 className="text-white font-bold text-lg mb-4">New Song</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="text-gray-400 text-xs block mb-1">Song title</label>
-                <input
-                  autoFocus
-                  value={newTitle}
-                  onChange={e => setNewTitle(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleCreate()}
-                  placeholder="e.g. Hey Jude / שיר לשבת"
-                  className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm border border-gray-700 focus:border-amber-400 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-gray-400 text-xs block mb-1">Language</label>
-                <div className="flex gap-2">
-                  {(['en', 'he', 'mixed'] as Song['language'][]).map(lang => (
-                    <button
-                      key={lang}
-                      onClick={() => setNewLang(lang)}
-                      className={`flex-1 py-2 text-sm rounded-lg border transition-colors ${
-                        newLang === lang
-                          ? 'bg-amber-500 text-black border-amber-400 font-bold'
-                          : 'bg-gray-800 text-gray-300 border-gray-700 hover:border-gray-500'
-                      }`}
-                    >
-                      {LANG_LABELS[lang]}
-                    </button>
-                  ))}
-                </div>
-              </div>
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New Song</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="song-title">Song title</Label>
+              <Input
+                id="song-title"
+                autoFocus
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreate()}
+                placeholder="e.g. Hey Jude / שיר לשבת"
+                className="focus-visible:ring-amber-400"
+              />
             </div>
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => setShowCreate(false)}
-                className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-sm touch-target"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={!newTitle.trim()}
-                className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-sm disabled:opacity-40 touch-target"
-              >
-                Create
-              </button>
+            <div className="space-y-1.5">
+              <Label>Song language</Label>
+              <div className="flex gap-2">
+                {(['en', 'he', 'mixed'] as Song['language'][]).map(lang => (
+                  <button
+                    key={lang}
+                    onClick={() => setNewLang(lang)}
+                    className={`flex-1 py-2 text-sm rounded-lg border transition-colors ${
+                      newLang === lang
+                        ? 'bg-amber-400 text-gray-900 border-amber-400 font-bold'
+                        : 'bg-background text-muted-foreground border-border hover:border-muted-foreground'
+                    }`}
+                  >
+                    {LANG_LABELS[lang]}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={!newTitle.trim() || creating}
+              className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
+            >
+              {creating ? 'Creating...' : 'Create'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Import dialog */}
-      {showImport && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-lg border border-gray-700 shadow-2xl">
-            <h2 className="text-white font-bold text-lg mb-2">Import ChordPro</h2>
-            <p className="text-gray-400 text-xs mb-3">Paste ChordPro format text below</p>
-            <textarea
-              autoFocus
-              value={importText}
-              onChange={e => setImportText(e.target.value)}
-              rows={10}
-              className="w-full bg-gray-800 text-gray-200 rounded-lg px-3 py-2 text-sm font-mono border border-gray-700 focus:border-amber-400 focus:outline-none resize-y"
-              placeholder="{title: My Song}&#10;{key: Am}&#10;&#10;[Am]Hello [G]world"
-            />
-            <div className="flex gap-2 mt-3">
-              <button
-                onClick={() => setShowImport(false)}
-                className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-sm touch-target"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleImport}
-                disabled={!importText.trim()}
-                className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-sm disabled:opacity-40 touch-target"
-              >
-                Import
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
