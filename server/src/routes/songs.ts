@@ -57,7 +57,7 @@ router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
 
 // PUT /api/songs/:id
 router.put('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const { title, artist, key, capo, language, sections } = req.body;
 
   try {
@@ -89,7 +89,7 @@ router.put('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
 
 // DELETE /api/songs/:id
 router.delete('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params.id as string;
 
   try {
     const [deleted] = await db

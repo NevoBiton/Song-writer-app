@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { ALL_CHORDS, searchChords, getChordsByQuality, RECENTLY_USED_KEY, FAVORITES_KEY } from '../../data/chords';
 import ChordDiagram from '../ChordDiagram/ChordDiagram';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface Props {
   isOpen: boolean;
@@ -111,47 +112,43 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemove, curre
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Search */}
           <div className="p-2 flex-shrink-0">
-            <input
+            <Input
               ref={searchRef}
               type="text"
               value={query}
               onChange={e => { setQuery(e.target.value); setRootFilter(''); setQualityFilter(''); }}
               placeholder="Search chords... (Am, G7, Dm...)"
-              className="w-full bg-muted text-foreground rounded-lg px-3 py-2 text-sm border border-border focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+              className="focus-visible:ring-amber-400"
             />
           </div>
 
           {/* Root filters */}
           <div className="px-2 pb-1 flex flex-wrap gap-1 flex-shrink-0">
             {['C','D','E','F','G','A','B','C#','D#','F#','G#','A#'].map(root => (
-              <button
+              <Button
                 key={root}
+                size="sm"
+                variant={rootFilter === root ? 'default' : 'outline'}
                 onClick={() => { setRootFilter(rootFilter === root ? '' : root); setQuery(''); }}
-                className={`px-2 py-0.5 text-xs rounded-md font-mono transition-colors ${
-                  rootFilter === root
-                    ? 'bg-amber-400 text-gray-900 font-bold'
-                    : 'bg-muted text-foreground hover:bg-accent'
-                }`}
+                className={`px-2 h-6 text-xs font-mono ${rootFilter === root ? 'bg-amber-400 text-gray-900 hover:bg-amber-500 border-amber-400' : ''}`}
               >
                 {root}
-              </button>
+              </Button>
             ))}
           </div>
 
           {/* Quality filters */}
           <div className="px-2 pb-2 flex flex-wrap gap-1 flex-shrink-0">
             {['m','7','maj7','m7','sus2','sus4','dim','aug','add9'].map(q => (
-              <button
+              <Button
                 key={q}
+                size="sm"
+                variant={qualityFilter === q ? 'default' : 'outline'}
                 onClick={() => { setQualityFilter(qualityFilter === q ? '' : q); setQuery(''); }}
-                className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
-                  qualityFilter === q
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-muted text-muted-foreground hover:bg-accent'
-                }`}
+                className={`px-2 h-6 text-xs ${qualityFilter === q ? 'bg-blue-500 hover:bg-blue-600 border-blue-500 text-white' : ''}`}
               >
                 {q}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -161,17 +158,19 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemove, curre
               <p className="text-muted-foreground text-xs mb-1 uppercase tracking-wide">Recent</p>
               <div className="flex flex-wrap gap-1">
                 {recentlyUsed.map(chord => (
-                  <button
+                  <Button
                     key={chord}
+                    size="sm"
+                    variant="outline"
                     onClick={() => handleSelect(chord)}
-                    className={`px-2 py-1 text-sm font-mono rounded-md border transition-colors ${
+                    className={`px-2 h-auto py-1 text-sm font-mono ${
                       preview === chord
-                        ? 'bg-amber-400 text-gray-900 border-amber-400 font-bold'
-                        : 'bg-card text-amber-600 border-border hover:border-amber-400'
+                        ? 'bg-amber-400 text-gray-900 border-amber-400 font-bold hover:bg-amber-500'
+                        : 'text-amber-600 hover:border-amber-400'
                     }`}
                   >
                     {chord}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -183,17 +182,19 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemove, curre
               <p className="text-muted-foreground text-xs mb-1 uppercase tracking-wide">Favorites ★</p>
               <div className="flex flex-wrap gap-1">
                 {favorites.map(chord => (
-                  <button
+                  <Button
                     key={chord}
+                    size="sm"
+                    variant="outline"
                     onClick={() => handleSelect(chord)}
-                    className={`px-2 py-1 text-sm font-mono rounded-md border transition-colors ${
+                    className={`px-2 h-auto py-1 text-sm font-mono ${
                       preview === chord
-                        ? 'bg-amber-400 text-gray-900 border-amber-400 font-bold'
-                        : 'bg-card text-yellow-600 border-border hover:border-yellow-400'
+                        ? 'bg-amber-400 text-gray-900 border-amber-400 font-bold hover:bg-amber-500'
+                        : 'text-yellow-600 hover:border-yellow-400'
                     }`}
                   >
                     {chord}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

@@ -97,12 +97,14 @@ export default function HomePage({ songs, onSelectSong, onCreateSong }: Props) {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-foreground">Recently Edited</h2>
-            <button
+            <Button
+              variant="link"
+              size="sm"
               onClick={() => navigate('/library')}
-              className="text-xs text-amber-600 hover:text-amber-700 font-medium"
+              className="text-xs text-amber-600 hover:text-amber-700 p-0 h-auto font-medium"
             >
               View all →
-            </button>
+            </Button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {recent.map(song => (

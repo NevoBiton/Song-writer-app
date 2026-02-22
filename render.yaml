@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: song-notebook-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm ci && npm run build
+    startCommand: node_modules/.bin/drizzle-kit migrate && node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false   # paste your Neon connection string in the Render dashboard
+      - key: JWT_SECRET
+        sync: false   # generate with: openssl rand -hex 32
+      - key: ALLOWED_ORIGIN
+        sync: false   # your Vercel frontend URL, e.g. https://song-notebook.vercel.app

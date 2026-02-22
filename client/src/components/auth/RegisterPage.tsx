@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/context/AuthContext';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -113,16 +114,14 @@ export default function RegisterPage() {
           </div>
 
           {/* SIGN UP button */}
-          <div>
-            <button
-              type="submit"
-              form="register-form"
-              disabled={isSubmitting}
-              className="w-full bg-amber-400 hover:bg-amber-500 text-black font-bold text-sm tracking-widest py-4 transition-colors disabled:opacity-60"
-            >
-              {isSubmitting ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}
-            </button>
-          </div>
+          <Button
+            type="submit"
+            form="register-form"
+            disabled={isSubmitting}
+            className="w-full bg-amber-400 hover:bg-amber-500 text-black font-bold text-sm tracking-widest py-4 h-auto rounded-none"
+          >
+            {isSubmitting ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}
+          </Button>
 
           {/* Already have account */}
           <div className="bg-gray-800 py-6 text-center">

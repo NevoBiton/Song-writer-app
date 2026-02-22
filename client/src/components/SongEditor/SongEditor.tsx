@@ -9,6 +9,12 @@ import ChordPicker from '../ChordPicker/ChordPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 
 interface Props {
   song: Song;
@@ -278,14 +284,15 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
             </div>
             <div>
               <label className="text-muted-foreground text-xs block mb-1">Key</label>
-              <select
-                value={song.key || ''}
-                onChange={e => updateKey(e.target.value)}
-                className="w-full h-8 bg-background text-foreground rounded-md px-2 py-1 text-sm border border-input focus:outline-none focus:ring-1 focus:ring-amber-400"
-              >
-                <option value="">—</option>
-                {allKeys.map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
+              <Select value={song.key || 'none'} onValueChange={v => updateKey(v === 'none' ? '' : v)}>
+                <SelectTrigger className="h-8 text-sm focus:ring-amber-400">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">—</SelectItem>
+                  {allKeys.map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-muted-foreground text-xs block mb-1">Capo</label>
@@ -300,15 +307,16 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
           <div className="flex flex-wrap gap-3 mt-3 items-center">
             <div>
               <label className="text-muted-foreground text-xs block mb-1">Language</label>
-              <select
-                value={song.language}
-                onChange={e => updateLanguage(e.target.value as Song['language'])}
-                className="bg-background text-foreground rounded-md px-2 py-1 text-sm border border-input focus:outline-none focus:ring-1 focus:ring-amber-400"
-              >
-                <option value="en">English</option>
-                <option value="he">Hebrew / עברית</option>
-                <option value="mixed">Mixed</option>
-              </select>
+              <Select value={song.language} onValueChange={v => updateLanguage(v as Song['language'])}>
+                <SelectTrigger className="text-sm focus:ring-amber-400">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="he">Hebrew / עברית</SelectItem>
+                  <SelectItem value="mixed">Mixed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="text-muted-foreground text-xs block mb-1">Transpose</label>
@@ -336,19 +344,20 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
       {previewMode && (
         <div className="bg-muted border-b border-border px-3 py-2 flex items-center gap-4 flex-shrink-0">
           <label className="flex items-center gap-1.5 text-muted-foreground text-sm cursor-pointer">
-            <input type="checkbox" checked={showChords} onChange={e => setShowChords(e.target.checked)} className="accent-amber-500" />
+            <Checkbox checked={showChords} onCheckedChange={v => setShowChords(!!v)} className="border-amber-400 data-[state=checked]:bg-amber-400" />
             Show chords
           </label>
           <label className="flex items-center gap-1.5 text-muted-foreground text-sm cursor-pointer">
-            <input type="checkbox" checked={autoScroll} onChange={e => setAutoScroll(e.target.checked)} className="accent-amber-500" />
+            <Checkbox checked={autoScroll} onCheckedChange={v => setAutoScroll(!!v)} className="border-amber-400 data-[state=checked]:bg-amber-400" />
             Auto-scroll
           </label>
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-muted-foreground text-xs">A</span>
-            <input
-              type="range" min={14} max={28} value={fontSize}
-              onChange={e => setFontSize(Number(e.target.value))}
-              className="w-20 accent-amber-500"
+            <Slider
+              min={14} max={28} step={1}
+              value={[fontSize]}
+              onValueChange={([v]) => setFontSize(v)}
+              className="w-20"
             />
             <span className="text-foreground text-base font-semibold">A</span>
           </div>
@@ -363,27 +372,30 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
             <div className="flex items-center gap-2 mb-2">
               {!previewMode ? (
                 <>
-                  <select
-                    value={section.type}
-                    onChange={e => updateSectionType(section.id, e.target.value as Section['type'])}
-                    className={`text-xs font-bold uppercase bg-transparent border-none focus:outline-none cursor-pointer ${SECTION_TYPE_COLORS[section.type]}`}
-                  >
-                    {SECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                  <input
+                  <Select value={section.type} onValueChange={v => updateSectionType(section.id, v as Section['type'])}>
+                    <SelectTrigger className={`h-auto py-0 px-1 w-auto border-none bg-transparent shadow-none text-xs font-bold uppercase focus:ring-0 ${SECTION_TYPE_COLORS[section.type]}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SECTION_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input
                     value={section.label || ''}
                     onChange={e => updateSectionLabel(section.id, e.target.value)}
-                    className="text-muted-foreground text-sm bg-transparent border-none focus:outline-none flex-1 focus:ring-0"
+                    className="text-muted-foreground text-sm bg-transparent border-none shadow-none focus-visible:ring-0 flex-1 h-auto px-1 py-0"
                     placeholder="Label..."
                   />
                   {song.sections.length > 1 && (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => removeSection(section.id)}
-                      className="text-muted-foreground hover:text-red-400 text-xs px-1 touch-target"
+                      className="text-muted-foreground hover:text-red-400 text-xs px-1 h-auto"
                       title="Remove section"
                     >
                       ✕
-                    </button>
+                    </Button>
                   )}
                 </>
               ) : (
@@ -395,7 +407,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
 
             {/* Section content */}
             {!previewMode && editingSectionId === section.id ? (
-              <textarea
+              <Textarea
                 ref={editingSectionId === section.id ? textareaRef : undefined}
                 value={editText}
                 onChange={e => setEditText(e.target.value)}
@@ -403,23 +415,22 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                 autoFocus
                 dir={song.language === 'he' ? 'rtl' : 'auto'}
                 rows={6}
-                className="w-full bg-background text-foreground rounded-xl px-3 py-2.5 text-base border-2 border-amber-400 focus:outline-none resize-none min-h-[140px] leading-relaxed overflow-hidden"
+                className="w-full rounded-xl px-3 py-2.5 text-base border-2 border-amber-400 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none min-h-[140px] leading-relaxed overflow-hidden"
                 placeholder={song.language === 'he' ? 'הקלד מילות השיר כאן...' : 'Type your lyrics here, one line per line...'}
                 style={{ height: 'auto' }}
               />
             ) : (
               <div className="rounded-xl">
                 {section.lines.length === 0 && !previewMode ? (
-                  <button
-                    className="w-full border-2 border-dashed border-border hover:border-amber-400 rounded-xl py-5 text-center transition-colors group"
+                  <Button
+                    variant="outline"
                     onClick={() => startEditSection(section)}
+                    className="w-full border-2 border-dashed border-border hover:border-amber-400 rounded-xl py-5 h-auto flex-col gap-1 transition-colors group"
                   >
-                    <div className="text-2xl mb-1">✍️</div>
-                    <div className="text-amber-500 font-semibold text-sm group-hover:text-amber-600">
-                      Add lyrics
-                    </div>
-                    <div className="text-muted-foreground text-xs mt-0.5">Click to type your song words</div>
-                  </button>
+                    <div className="text-2xl">✍️</div>
+                    <div className="text-amber-500 font-semibold text-sm group-hover:text-amber-600">Add lyrics</div>
+                    <div className="text-muted-foreground text-xs">Click to type your song words</div>
+                  </Button>
                 ) : (
                   <>
                     <div className={`px-1 ${!previewMode ? 'rounded-xl border border-transparent hover:border-border hover:bg-accent cursor-pointer' : ''}`}>
@@ -434,12 +445,14 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                       ))}
                     </div>
                     {!previewMode && (
-                      <button
-                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted hover:bg-accent rounded-lg transition-colors touch-target border border-border"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => startEditSection(section)}
+                        className="mt-2 gap-1.5 text-xs text-muted-foreground border border-border"
                       >
                         <Edit3 className="w-3 h-3" /> Edit lyrics
-                      </button>
+                      </Button>
                     )}
                   </>
                 )}
@@ -455,13 +468,15 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
               <Plus className="w-3 h-3 inline" /> Add section:
             </span>
             {(['verse', 'chorus', 'bridge', 'intro', 'outro'] as Section['type'][]).map(type => (
-              <button
+              <Button
                 key={type}
+                variant="outline"
+                size="sm"
                 onClick={() => addSection(type)}
-                className={`px-3 py-1.5 text-xs rounded-lg capitalize touch-target border transition-colors ${SECTION_BADGE_COLORS[type]}`}
+                className={`capitalize text-xs h-7 ${SECTION_BADGE_COLORS[type]}`}
               >
                 {type}
-              </button>
+              </Button>
             ))}
           </div>
         )}

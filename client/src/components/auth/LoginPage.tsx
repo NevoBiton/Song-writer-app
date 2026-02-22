@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/context/AuthContext';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -114,16 +115,14 @@ export default function LoginPage() {
           </div>
 
           {/* LOGIN button — spans the seam, wired to the form above via form= */}
-          <div>
-            <button
-              type="submit"
-              form="login-form"
-              disabled={isSubmitting}
-              className="w-full bg-amber-400 hover:bg-amber-500 text-black font-bold text-sm tracking-widest py-4 transition-colors disabled:opacity-60"
-            >
-              {isSubmitting ? 'LOGGING IN...' : 'LOGIN'}
-            </button>
-          </div>
+          <Button
+            type="submit"
+            form="login-form"
+            disabled={isSubmitting}
+            className="w-full bg-amber-400 hover:bg-amber-500 text-black font-bold text-sm tracking-widest py-4 h-auto rounded-none"
+          >
+            {isSubmitting ? 'LOGGING IN...' : 'LOGIN'}
+          </Button>
 
           {/* Sign up section */}
           <div className="bg-gray-800 py-6 text-center">
@@ -141,8 +140,8 @@ export default function LoginPage() {
           {/* Nav links top-right */}
           <div className="flex justify-end gap-6 p-5 text-sm font-medium text-gray-900">
             <Link to="/login" className="cursor-pointer hover:text-gray-700">Home</Link>
-            <button onClick={() => setShowAbout(true)} className="cursor-pointer hover:text-gray-700">About</button>
-            <button onClick={() => setShowHelp(true)} className="cursor-pointer hover:text-gray-700">Help</button>
+            <Button variant="ghost" size="sm" onClick={() => setShowAbout(true)} className="p-0 h-auto font-medium text-gray-900 hover:text-gray-700 hover:bg-transparent">About</Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowHelp(true)} className="p-0 h-auto font-medium text-gray-900 hover:text-gray-700 hover:bg-transparent">Help</Button>
           </div>
 
           {/* Center content */}
