@@ -1,25 +1,29 @@
-# SongWriter Pro — Project Overview
+# Song Notebook — Monorepo
 
-A full-stack web app for writing songs with inline chord annotations. Supports Hebrew (RTL) and English lyrics, chord diagrams, transposition, and per-user song storage.
+Full-stack chord notebook app. React frontend + Express/PostgreSQL backend.
 
-## Architecture
+## Structure
 
 ```
 Song-Notebook/
-├── src/           # React/Vite frontend  →  see src/CLAUDE.md
-├── server/        # Express backend      →  see server/CLAUDE.md
-├── package.json   # Frontend deps
-└── CLAUDE.md      # This file
+├── client/          # React + Vite frontend  →  see client/src/CLAUDE.md
+├── server/          # Express backend         →  see server/CLAUDE.md
+├── package.json     # Root scripts (runs both apps via concurrently)
+└── .gitignore
 ```
 
 ## Quick Start
 
 ```bash
-# Terminal 1 — backend
-cd server && npm run dev        # http://localhost:3001
+# Install dependencies for both apps
+npm run install:all
 
-# Terminal 2 — frontend
-npm run dev                     # http://localhost:5173
+# Run both client and server together
+npm run dev
+
+# Or run separately
+npm run dev:client   # Vite on :5173
+npm run dev:server   # Express on :3001
 ```
 
 ## Tech Stack
