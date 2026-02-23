@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: chordnotes-api
+    name: wordchord-api
     runtime: node
     rootDir: server
     buildCommand: npm ci && npm run build
@@ -12,7 +12,7 @@ services:
         value: 10000
       - key: DATABASE_URL
         sync: false   # paste your Neon connection string in the Render dashboard
-      - key: JWT_SECRET
-        sync: false   # generate with: openssl rand -hex 32
+      - key: SUPABASE_JWT_SECRET
+        sync: false   # your Supabase JWT secret from Project Settings → API → JWT Settings
       - key: ALLOWED_ORIGIN
         sync: false   # your Vercel frontend URL, e.g. https://song-notebook.vercel.app

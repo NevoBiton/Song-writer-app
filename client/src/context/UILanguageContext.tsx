@@ -4,7 +4,7 @@ export type UILang = 'en' | 'he';
 
 export const translations = {
   en: {
-    appName: 'ChordNotes',
+    appName: 'WordChord',
     myLibrary: 'My Library',
     help: 'Help',
     signOut: 'Sign Out',
@@ -46,7 +46,7 @@ export const translations = {
     lightMode: 'Light Mode',
   },
   he: {
-    appName: 'ChordNotes',
+    appName: 'WordChord',
     myLibrary: 'הספרייה שלי',
     help: 'עזרה',
     signOut: 'התנתק',

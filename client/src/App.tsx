@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Session } from '@supabase/supabase-js';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog';
 import { Label } from './components/ui/label';
 import { Input } from './components/ui/input';
@@ -7,6 +8,7 @@ import { Button } from './components/ui/button';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryClient } from './lib/queryClient';
+import { supabase } from './lib/supabase';
 import { Song } from './types';
 import { useSongLibrary } from './hooks/useSongLibrary';
 import SongList from './components/SongList/SongList';
@@ -15,7 +17,6 @@ import LoginPage from './components/auth/LoginPage';
 import RegisterPage from './components/auth/RegisterPage';
 import HomePage from './components/Home/HomePage';
 import { AppLayout } from './components/Layout/AppLayout';
-import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { UILanguageProvider } from './context/UILanguageContext';
 import { Toaster } from './components/ui/sonner';
@@ -29,7 +30,6 @@ function useIsMobile() {
   }, []);
   return isMobile;
 }
-
 
 function AuthenticatedApp() {
   const { songs, loading, createSong, deleteSong, duplicateSong, updateSong, deletedSongs, restoreSong, permanentDeleteSong } =
@@ -107,8 +107,8 @@ function AuthenticatedApp() {
   return (
     <>
       <Routes>
-        <Route path="/login" element={<Navigate to="/" replace />} />
-        <Route path="/register" element={<Navigate to="/" replace />} />
+        <Route path="/sign-in" element={<Navigate to="/" replace />} />
+        <Route path="/sign-up" element={<Navigate to="/" replace />} />
         <Route
           path="/"
           element={layout(
@@ -184,14 +184,37 @@ function AuthenticatedApp() {
 }
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
 
-  if (!isAuthenticated) {
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      // Clear React Query cache on sign out
+      if (!session) queryClient.clear();
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Still loading
+  if (session === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session) {
     return (
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="/sign-in" element={<LoginPage />} />
+        <Route path="/sign-up" element={<RegisterPage />} />
+        <Route path="*" element={<Navigate to="/sign-in" replace />} />
       </Routes>
     );
   }
@@ -204,12 +227,10 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <UILanguageProvider>
-          <AuthProvider>
-            <BrowserRouter>
-              <AppRoutes />
-              <Toaster />
-            </BrowserRouter>
-          </AuthProvider>
+          <BrowserRouter>
+            <AppRoutes />
+            <Toaster />
+          </BrowserRouter>
         </UILanguageProvider>
       </ThemeProvider>
     </QueryClientProvider>

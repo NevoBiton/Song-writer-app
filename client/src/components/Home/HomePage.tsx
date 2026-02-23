@@ -1,9 +1,10 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Music, Plus, BookOpen, Clock } from 'lucide-react';
 import { Song } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 interface Props {
   songs: Song[];
@@ -25,8 +26,17 @@ function timeAgo(iso: string | undefined): string {
 }
 
 export default function HomePage({ songs, onSelectSong, onNewSong }: Props) {
-  const { user } = useAuth();
+  const [displayName, setDisplayName] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user;
+      setDisplayName(
+        u?.user_metadata?.full_name || u?.user_metadata?.name || u?.email?.split('@')[0] || ''
+      );
+    });
+  }, []);
   const recent = songs.slice(0, 4);
 
   return (
@@ -36,7 +46,7 @@ export default function HomePage({ songs, onSelectSong, onNewSong }: Props) {
         <div className="relative z-10">
           <p className="text-amber-900 text-sm font-semibold uppercase tracking-wider mb-1">Welcome back</p>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {user?.username} 👋
+            {displayName} 👋
           </h1>
           <p className="text-amber-800 mb-6 max-w-sm">
             You have {songs.length} {songs.length === 1 ? 'song' : 'songs'} in your collection. Keep writing!
