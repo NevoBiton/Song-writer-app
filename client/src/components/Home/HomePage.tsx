@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 interface Props {
   songs: Song[];
   onSelectSong: (song: Song) => void;
-  onCreateSong: (title: string, lang: Song['language']) => Promise<Song>;
+  onNewSong: () => void;
 }
 
 function timeAgo(iso: string | undefined): string {
@@ -24,16 +24,10 @@ function timeAgo(iso: string | undefined): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function HomePage({ songs, onSelectSong, onCreateSong }: Props) {
+export default function HomePage({ songs, onSelectSong, onNewSong }: Props) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const recent = songs.slice(0, 4);
-
-  async function handleNewSong() {
-    const song = await onCreateSong('Untitled Song', 'en');
-    onSelectSong(song);
-    navigate('/library');
-  }
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -49,7 +43,7 @@ export default function HomePage({ songs, onSelectSong, onCreateSong }: Props) {
           </p>
           <div className="flex gap-3 flex-wrap">
             <Button
-              onClick={handleNewSong}
+              onClick={onNewSong}
               className="bg-gray-900 hover:bg-gray-800 text-white font-bold border-0 gap-2"
             >
               <Plus className="w-4 h-4" />
@@ -144,7 +138,7 @@ export default function HomePage({ songs, onSelectSong, onCreateSong }: Props) {
           <div>
             <h3 className="font-semibold text-foreground text-lg mb-1">No songs yet</h3>
             <p className="text-muted-foreground text-sm mb-4">Start your chord notebook by creating your first song</p>
-            <Button onClick={handleNewSong} className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0">
+            <Button onClick={onNewSong} className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0">
               <Plus className="w-4 h-4 mr-2" /> Create first song
             </Button>
           </div>

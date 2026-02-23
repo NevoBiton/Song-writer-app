@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog';
+import { Label } from './components/ui/label';
+import { Input } from './components/ui/input';
+import { Button } from './components/ui/button';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryClient } from './lib/queryClient';
@@ -26,10 +30,14 @@ function useIsMobile() {
   return isMobile;
 }
 
+
 function AuthenticatedApp() {
-  const { songs, loading, createSong, deleteSong, duplicateSong, updateSong } =
+  const { songs, loading, createSong, deleteSong, duplicateSong, updateSong, deletedSongs, restoreSong, permanentDeleteSong } =
     useSongLibrary();
   const [activeSong, setActiveSong] = useState<Song | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [creating, setCreating] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
@@ -38,16 +46,40 @@ function AuthenticatedApp() {
     navigate('/library');
   }
 
-  async function handleCreateSong(title: string, language: Song['language']): Promise<Song> {
-    const song = await createSong(title, language);
-    toast.success(`"${song.title}" created`);
-    return song;
+  function openCreateDialog() {
+    setNewTitle('');
+    setShowCreateDialog(true);
+  }
+
+  async function handleCreateSong() {
+    if (!newTitle.trim()) return;
+    setCreating(true);
+    try {
+      const song = await createSong(newTitle.trim(), 'en');
+      toast.success(`"${song.title}" created`);
+      setShowCreateDialog(false);
+      setActiveSong(song);
+      navigate('/library');
+    } finally {
+      setCreating(false);
+    }
   }
 
   async function handleDeleteSong(id: string) {
     const song = songs.find(s => s.id === id);
     await deleteSong(id);
-    toast.success(`"${song?.title ?? 'Song'}" deleted`);
+    toast.success(`"${song?.title ?? 'Song'}" moved to Recently Deleted`);
+  }
+
+  async function handleRestoreSong(id: string) {
+    const song = deletedSongs.find(s => s.id === id);
+    await restoreSong(id);
+    toast.success(`"${song?.title ?? 'Song'}" restored`);
+  }
+
+  async function handlePermanentDeleteSong(id: string) {
+    await permanentDeleteSong(id);
+    toast.success('Song permanently deleted');
   }
 
   async function handleDuplicateSong(id: string) {
@@ -73,44 +105,81 @@ function AuthenticatedApp() {
   );
 
   return (
-    <Routes>
-      <Route path="/login" element={<Navigate to="/" replace />} />
-      <Route path="/register" element={<Navigate to="/" replace />} />
-      <Route
-        path="/"
-        element={layout(
-          <HomePage
-            songs={songs}
-            onSelectSong={handleSelectSong}
-            onCreateSong={handleCreateSong}
-          />
-        )}
-      />
-      <Route
-        path="/library"
-        element={layout(
-          activeSong ? (
-            <SongEditor
-              song={activeSong}
-              onSave={handleSaveSong}
-              onBack={handleBack}
-              isMobile={isMobile}
-            />
-          ) : (
-            <SongList
+    <>
+      <Routes>
+        <Route path="/login" element={<Navigate to="/" replace />} />
+        <Route path="/register" element={<Navigate to="/" replace />} />
+        <Route
+          path="/"
+          element={layout(
+            <HomePage
               songs={songs}
-              loading={loading}
               onSelectSong={handleSelectSong}
-              onCreateSong={handleCreateSong}
-              onDeleteSong={handleDeleteSong}
-              onDuplicateSong={handleDuplicateSong}
-              isMobile={isMobile}
+              onNewSong={openCreateDialog}
             />
-          )
-        )}
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+          )}
+        />
+        <Route
+          path="/library"
+          element={layout(
+            activeSong ? (
+              <SongEditor
+                song={activeSong}
+                onSave={handleSaveSong}
+                onBack={handleBack}
+                isMobile={isMobile}
+              />
+            ) : (
+              <SongList
+                songs={songs}
+                loading={loading}
+                onSelectSong={handleSelectSong}
+                onNewSong={openCreateDialog}
+                onDeleteSong={handleDeleteSong}
+                onDuplicateSong={handleDuplicateSong}
+                deletedSongs={deletedSongs}
+                onRestoreSong={handleRestoreSong}
+                onPermanentDeleteSong={handlePermanentDeleteSong}
+                isMobile={isMobile}
+              />
+            )
+          )}
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New Song</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="song-title">Song title</Label>
+              <Input
+                id="song-title"
+                autoFocus
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreateSong()}
+                placeholder="e.g. Hey Jude / שיר לשבת"
+                className="focus-visible:ring-amber-400"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancel</Button>
+            <Button
+              onClick={handleCreateSong}
+              disabled={!newTitle.trim() || creating}
+              className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
+            >
+              {creating ? 'Creating...' : 'Create'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
