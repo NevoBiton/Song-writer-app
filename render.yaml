@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: song-notebook-api
+    name: chordnotes-api
     runtime: node
     rootDir: server
     buildCommand: npm ci && npm run build

@@ -75,5 +75,5 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 // ── Start ─────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`🎵 SongWriter Pro API running on http://localhost:${PORT}`);
+  console.log(`🎵 ChordNotes API running on http://localhost:${PORT}`);
 });

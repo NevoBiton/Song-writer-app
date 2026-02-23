@@ -1,7 +1,7 @@
 {
-  "name": "song-notebook-server",
+  "name": "chordnotes-server",
   "version": "1.0.0",
-  "description": "SongWriter Pro backend API",
+  "description": "ChordNotes backend API",
   "main": "src/index.ts",
   "scripts": {
     "dev": "tsx watch src/index.ts",

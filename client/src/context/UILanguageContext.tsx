@@ -4,7 +4,7 @@ export type UILang = 'en' | 'he';
 
 export const translations = {
   en: {
-    appName: 'SongWriter Pro',
+    appName: 'ChordNotes',
     myLibrary: 'My Library',
     help: 'Help',
     signOut: 'Sign Out',
@@ -46,7 +46,7 @@ export const translations = {
     lightMode: 'Light Mode',
   },
   he: {
-    appName: 'מחברת שירים',
+    appName: 'ChordNotes',
     myLibrary: 'הספרייה שלי',
     help: 'עזרה',
     signOut: 'התנתק',
