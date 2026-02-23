@@ -30,7 +30,6 @@ function useIsMobile() {
   return isMobile;
 }
 
-const LANG_LABELS: Record<string, string> = { en: 'EN', he: 'עב', mixed: 'EN/עב' };
 
 function AuthenticatedApp() {
   const { songs, loading, createSong, deleteSong, duplicateSong, updateSong, deletedSongs, restoreSong, permanentDeleteSong } =
@@ -38,7 +37,6 @@ function AuthenticatedApp() {
   const [activeSong, setActiveSong] = useState<Song | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newLang, setNewLang] = useState<Song['language']>('en');
   const [creating, setCreating] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -50,7 +48,6 @@ function AuthenticatedApp() {
 
   function openCreateDialog() {
     setNewTitle('');
-    setNewLang('en');
     setShowCreateDialog(true);
   }
 
@@ -58,7 +55,7 @@ function AuthenticatedApp() {
     if (!newTitle.trim()) return;
     setCreating(true);
     try {
-      const song = await createSong(newTitle.trim(), newLang);
+      const song = await createSong(newTitle.trim(), 'en');
       toast.success(`"${song.title}" created`);
       setShowCreateDialog(false);
       setActiveSong(song);
@@ -156,7 +153,7 @@ function AuthenticatedApp() {
           <DialogHeader>
             <DialogTitle>New Song</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="py-2">
             <div className="space-y-1.5">
               <Label htmlFor="song-title">Song title</Label>
               <Input
@@ -168,24 +165,6 @@ function AuthenticatedApp() {
                 placeholder="e.g. Hey Jude / שיר לשבת"
                 className="focus-visible:ring-amber-400"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Song language</Label>
-              <div className="flex gap-2">
-                {(['en', 'he', 'mixed'] as Song['language'][]).map(lang => (
-                  <button
-                    key={lang}
-                    onClick={() => setNewLang(lang)}
-                    className={`flex-1 py-2 text-sm rounded-lg border transition-colors ${
-                      newLang === lang
-                        ? 'bg-amber-400 text-gray-900 border-amber-400 font-bold'
-                        : 'bg-background text-muted-foreground border-border hover:border-muted-foreground'
-                    }`}
-                  >
-                    {LANG_LABELS[lang]}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
           <DialogFooter>

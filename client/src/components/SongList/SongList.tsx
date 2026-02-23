@@ -362,8 +362,11 @@ export default function SongList({
             <Button
               variant="destructive"
               onClick={async () => {
-                if (confirmDeleteId) await onDeleteSong(confirmDeleteId);
-                setConfirmDeleteId(null);
+                try {
+                  if (confirmDeleteId) await onDeleteSong(confirmDeleteId);
+                } finally {
+                  setConfirmDeleteId(null);
+                }
               }}
             >
               Delete
@@ -386,8 +389,11 @@ export default function SongList({
             <Button
               variant="destructive"
               onClick={async () => {
-                if (confirmPermDeleteId) await onPermanentDeleteSong(confirmPermDeleteId);
-                setConfirmPermDeleteId(null);
+                try {
+                  if (confirmPermDeleteId) await onPermanentDeleteSong(confirmPermDeleteId);
+                } finally {
+                  setConfirmPermDeleteId(null);
+                }
               }}
             >
               Delete forever

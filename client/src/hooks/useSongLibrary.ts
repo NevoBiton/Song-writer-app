@@ -81,7 +81,15 @@ export function useSongLibrary() {
       await api.delete(`/songs/${id}`);
     },
     onMutate: async (id: string) => {
+      await client.cancelQueries({ queryKey: SONGS_KEY });
+      const previousSongs = client.getQueryData<Song[]>(SONGS_KEY);
       client.setQueryData<Song[]>(SONGS_KEY, (old = []) => old.filter(s => s.id !== id));
+      return { previousSongs };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previousSongs) {
+        client.setQueryData<Song[]>(SONGS_KEY, context.previousSongs);
+      }
     },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: DELETED_SONGS_KEY });

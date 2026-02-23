@@ -3,6 +3,17 @@ import { Song, Section } from '../types';
 import { tokenizeLines } from '../utils/chordParser';
 import { transposeSong } from '../utils/transpose';
 
+function detectLanguage(sections: Section[]): Song['language'] {
+  const allText = sections
+    .flatMap(s => s.lines.flatMap(l => l.tokens.map(t => t.text)))
+    .join(' ');
+  const hasHebrew = /[\u0590-\u05FF]/.test(allText);
+  const hasLatin = /[a-zA-Z]/.test(allText);
+  if (hasHebrew && hasLatin) return 'mixed';
+  if (hasHebrew) return 'he';
+  return 'en';
+}
+
 const MAX_HISTORY = 50;
 
 function uid(): string {
@@ -228,11 +239,13 @@ export function useSong(
       }),
     }));
 
+    const updatedSections = song.sections.map(sec =>
+      sec.id !== sectionId ? sec : { ...sec, lines: restoredLines }
+    );
     commit({
       ...song,
-      sections: song.sections.map(sec =>
-        sec.id !== sectionId ? sec : { ...sec, lines: restoredLines }
-      ),
+      language: detectLanguage(updatedSections),
+      sections: updatedSections,
     });
   }, [song]);
 
