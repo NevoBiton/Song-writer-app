@@ -1,27 +1,26 @@
 import React, { useState } from 'react';
-import { Plus, Music, Search, Share2, Check } from 'lucide-react';
+import { Plus, Music, Search, Share2, Check, Trash2, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { Song } from '../../types';
+import { DeletedSong } from '@/hooks/useSongLibrary';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 
 interface Props {
   songs: Song[];
   loading?: boolean;
   onSelectSong: (song: Song) => void;
-  onCreateSong: (title: string, language: Song['language']) => Promise<Song>;
+  onNewSong: () => void;
   onDeleteSong: (id: string) => Promise<void>;
   onDuplicateSong: (id: string) => Promise<Song | undefined>;
+  deletedSongs: DeletedSong[];
+  onRestoreSong: (id: string) => Promise<void>;
+  onPermanentDeleteSong: (id: string) => Promise<void>;
   isMobile?: boolean;
 }
 
@@ -37,6 +36,12 @@ function timeAgo(iso: string | undefined): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
+}
+
+function daysUntilExpiry(iso: string): number {
+  const d = new Date(iso);
+  const daysLeft = 30 - Math.floor((Date.now() - d.getTime()) / 86400000);
+  return Math.max(0, daysLeft);
 }
 
 function formatSongForShare(song: Song): string {
@@ -58,9 +63,7 @@ function formatSongForShare(song: Song): string {
   return lines.join('\n');
 }
 
-const LANG_LABELS: Record<string, string> = {
-  en: 'EN', he: 'עב', mixed: 'EN/עב',
-};
+const LANG_LABELS: Record<string, string> = { en: 'EN', he: 'עב', mixed: 'EN/עב' };
 
 const SECTION_TYPE_COLORS: Record<string, string> = {
   verse: 'bg-blue-100 text-blue-700',
@@ -75,17 +78,19 @@ export default function SongList({
   songs,
   loading,
   onSelectSong,
-  onCreateSong,
+  onNewSong,
   onDeleteSong,
   onDuplicateSong,
+  deletedSongs,
+  onRestoreSong,
+  onPermanentDeleteSong,
 }: Props) {
   const [query, setQuery] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newLang, setNewLang] = useState<Song['language']>('en');
   const [contextMenu, setContextMenu] = useState<{ songId: string; x: number; y: number } | null>(null);
-  const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmPermDeleteId, setConfirmPermDeleteId] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   const filtered = query
     ? songs.filter(s =>
@@ -93,19 +98,6 @@ export default function SongList({
         (s.artist && s.artist.toLowerCase().includes(query.toLowerCase()))
       )
     : songs;
-
-  async function handleCreate() {
-    if (!newTitle.trim()) return;
-    setCreating(true);
-    try {
-      const song = await onCreateSong(newTitle.trim(), newLang);
-      setShowCreate(false);
-      setNewTitle('');
-      onSelectSong(song);
-    } finally {
-      setCreating(false);
-    }
-  }
 
   async function handleShare(songId: string) {
     const song = songs.find(s => s.id === songId);
@@ -138,6 +130,9 @@ export default function SongList({
     );
   }
 
+  const songToDelete = songs.find(s => s.id === confirmDeleteId);
+  const songToPermDelete = deletedSongs.find(s => s.id === confirmPermDeleteId);
+
   return (
     <div className="space-y-6" onClick={() => setContextMenu(null)}>
       {/* Page header */}
@@ -150,7 +145,7 @@ export default function SongList({
         </div>
         <Button
           size="sm"
-          onClick={() => setShowCreate(true)}
+          onClick={() => onNewSong()}
           className="gap-1.5 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
         >
           <Plus className="w-4 h-4" />
@@ -180,7 +175,7 @@ export default function SongList({
             <h2 className="text-xl font-bold text-foreground mb-1">No songs yet</h2>
             <p className="text-muted-foreground text-sm mb-6">Create your first song to get started</p>
             <Button
-              onClick={() => setShowCreate(true)}
+              onClick={() => onNewSong()}
               className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -223,7 +218,6 @@ export default function SongList({
                   </div>
                 </div>
 
-                {/* Section type pills */}
                 {song.sections.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-3">
                     {song.sections.slice(0, 4).map(section => (
@@ -242,13 +236,77 @@ export default function SongList({
 
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                   <span className="text-muted-foreground text-xs">{timeAgo(song.updatedAt)}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {song.sections.length} section{song.sections.length !== 1 ? 's' : ''}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground text-xs">
+                      {song.sections.length} section{song.sections.length !== 1 ? 's' : ''}
+                    </span>
+                    <button
+                      onClick={e => { e.stopPropagation(); setConfirmDeleteId(song.id); }}
+                      className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded-lg hover:bg-destructive/10"
+                      title="Delete song"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Recently Deleted section */}
+      {deletedSongs.length > 0 && (
+        <div className="border-t border-border pt-4">
+          <button
+            onClick={() => setShowDeleted(v => !v)}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            Recently Deleted ({deletedSongs.length})
+            {showDeleted ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+
+          {showDeleted && (
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {deletedSongs.map(song => (
+                <div
+                  key={song.id}
+                  className="p-4 rounded-xl border border-border bg-muted/50 opacity-75"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-foreground truncate line-through">{song.title}</p>
+                      {song.artist && (
+                        <p className="text-muted-foreground text-xs truncate">{song.artist}</p>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Deleted {timeAgo(song.deletedAt)} · expires in {daysUntilExpiry(song.deletedAt)}d
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onRestoreSong(song.id)}
+                      className="flex-1 gap-1.5 text-xs h-8"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Restore
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setConfirmPermDeleteId(song.id)}
+                      className="gap-1.5 text-xs h-8 text-destructive hover:bg-destructive/10 border-destructive/30"
+                    >
+                      <Trash2 className="w-3 h-3" /> Delete forever
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -287,72 +345,56 @@ export default function SongList({
               : <Share2 className="w-3.5 h-3.5" />}
             Share
           </button>
-          <hr className="border-border my-1" />
-          <button
-            onClick={async () => {
-              await onDeleteSong(contextMenu.songId);
-              setContextMenu(null);
-            }}
-            className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10"
-          >
-            🗑 Delete
-          </button>
         </div>
       )}
 
-      {/* Create dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      {/* Confirm delete dialog */}
+      <Dialog open={!!confirmDeleteId} onOpenChange={() => setConfirmDeleteId(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>New Song</DialogTitle>
+            <DialogTitle>Delete song?</DialogTitle>
+            <DialogDescription>
+              "{songToDelete?.title}" will be moved to Recently Deleted. You can restore it within 30 days.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="song-title">Song title</Label>
-              <Input
-                id="song-title"
-                autoFocus
-                value={newTitle}
-                onChange={e => setNewTitle(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleCreate()}
-                placeholder="e.g. Hey Jude / שיר לשבת"
-                className="focus-visible:ring-amber-400"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Song language</Label>
-              <div className="flex gap-2">
-                {(['en', 'he', 'mixed'] as Song['language'][]).map(lang => (
-                  <button
-                    key={lang}
-                    onClick={() => setNewLang(lang)}
-                    className={`flex-1 py-2 text-sm rounded-lg border transition-colors ${
-                      newLang === lang
-                        ? 'bg-amber-400 text-gray-900 border-amber-400 font-bold'
-                        : 'bg-background text-muted-foreground border-border hover:border-muted-foreground'
-                    }`}
-                  >
-                    {LANG_LABELS[lang]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
             <Button
-              onClick={handleCreate}
-              disabled={!newTitle.trim() || creating}
-              className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
+              variant="destructive"
+              onClick={async () => {
+                if (confirmDeleteId) await onDeleteSong(confirmDeleteId);
+                setConfirmDeleteId(null);
+              }}
             >
-              {creating ? 'Creating...' : 'Create'}
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Confirm permanent delete dialog */}
+      <Dialog open={!!confirmPermDeleteId} onOpenChange={() => setConfirmPermDeleteId(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete forever?</DialogTitle>
+            <DialogDescription>
+              "{songToPermDelete?.title}" will be permanently deleted. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmPermDeleteId(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (confirmPermDeleteId) await onPermanentDeleteSong(confirmPermDeleteId);
+                setConfirmPermDeleteId(null);
+              }}
+            >
+              Delete forever
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

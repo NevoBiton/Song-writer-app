@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { ALL_CHORDS, searchChords, getChordsByQuality, RECENTLY_USED_KEY, FAVORITES_KEY } from '../../data/chords';
-import ChordDiagram from '../ChordDiagram/ChordDiagram';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -25,22 +24,25 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemove, curre
   const [query, setQuery] = useState('');
   const [rootFilter, setRootFilter] = useState('');
   const [qualityFilter, setQualityFilter] = useState('');
-  const [preview, setPreview] = useState<string | null>(currentChord || null);
   const [recentlyUsed, setRecentlyUsed] = useState<string[]>(() => loadList(RECENTLY_USED_KEY));
   const [favorites, setFavorites] = useState<string[]>(() => loadList(FAVORITES_KEY));
   const searchRef = useRef<HTMLInputElement>(null);
 
+  // Reset everything when picker opens
   useEffect(() => {
     if (isOpen) {
       setQuery('');
-      setPreview(currentChord || null);
+      setRootFilter('');
+      setQualityFilter('');
       setTimeout(() => searchRef.current?.focus(), 100);
     }
-  }, [isOpen, currentChord]);
+  }, [isOpen]);
+
+  const isSlashChord = /^[A-G][#b]?[a-zA-Z0-9]*\/[A-G][#b]?$/.test(query.trim());
 
   const filteredChords: string[] = (() => {
-    let chords = ALL_CHORDS;
     if (query) return searchChords(query);
+    let chords = ALL_CHORDS;
     if (rootFilter) chords = chords.filter(c =>
       c.startsWith(rootFilter) && (c[rootFilter.length] === undefined || !/[A-G]/.test(c[rootFilter.length]))
     );
@@ -52,15 +54,10 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemove, curre
   })();
 
   function handleSelect(chord: string) {
-    setPreview(chord);
-  }
-
-  function handleConfirm() {
-    if (!preview) return;
-    const updated = [preview, ...recentlyUsed.filter(c => c !== preview)].slice(0, 8);
+    const updated = [chord, ...recentlyUsed.filter(c => c !== chord)].slice(0, 4);
     setRecentlyUsed(updated);
     saveList(RECENTLY_USED_KEY, updated);
-    onSelect(preview);
+    onSelect(chord);
     onClose();
   }
 
@@ -107,111 +104,126 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemove, curre
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: chord list */}
-        <div className="flex flex-col flex-1 overflow-hidden">
-          {/* Search */}
-          <div className="p-2 flex-shrink-0">
-            <Input
-              ref={searchRef}
-              type="text"
-              value={query}
-              onChange={e => { setQuery(e.target.value); setRootFilter(''); setQualityFilter(''); }}
-              placeholder="Search chords... (Am, G7, Dm...)"
-              className="focus-visible:ring-amber-400"
-            />
-          </div>
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {/* Search */}
+        <div className="p-2 flex-shrink-0">
+          <Input
+            ref={searchRef}
+            type="text"
+            value={query}
+            onChange={e => { setQuery(e.target.value); setRootFilter(''); setQualityFilter(''); }}
+            placeholder="Search or type slash chord (C/E)..."
+            className="focus-visible:ring-amber-400 h-11 text-base"
+          />
+        </div>
 
-          {/* Root filters */}
-          <div className="px-2 pb-1 flex flex-wrap gap-1 flex-shrink-0">
-            {['C','D','E','F','G','A','B','C#','D#','F#','G#','A#'].map(root => (
-              <Button
-                key={root}
-                size="sm"
-                variant={rootFilter === root ? 'default' : 'outline'}
-                onClick={() => { setRootFilter(rootFilter === root ? '' : root); setQuery(''); }}
-                className={`px-2 h-6 text-xs font-mono ${rootFilter === root ? 'bg-amber-400 text-gray-900 hover:bg-amber-500 border-amber-400' : ''}`}
-              >
-                {root}
-              </Button>
-            ))}
-          </div>
+        {/* Root selected: back button + quality filters */}
+        {(rootFilter || query) && (
+          <>
+            {rootFilter && (
+              <div className="px-2 pb-1 flex items-center gap-2 flex-shrink-0">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setRootFilter(''); setQualityFilter(''); }}
+                  className="text-xs h-7 px-2 text-muted-foreground"
+                >
+                  ← Back
+                </Button>
+                <span className="text-base font-bold font-mono text-amber-600">{rootFilter}</span>
+              </div>
+            )}
+            <div className="px-2 pb-2 flex flex-wrap gap-1 flex-shrink-0">
+              {['m','7','maj7','m7','sus2','sus4','dim','aug','add9'].map(q => (
+                <Button
+                  key={q}
+                  size="sm"
+                  variant={qualityFilter === q ? 'default' : 'outline'}
+                  onClick={() => { setQualityFilter(qualityFilter === q ? '' : q); setQuery(''); }}
+                  className={`px-2 h-7 text-sm ${qualityFilter === q ? 'bg-blue-500 hover:bg-blue-600 border-blue-500 text-white' : ''}`}
+                >
+                  {q}
+                </Button>
+              ))}
+            </div>
+          </>
+        )}
 
-          {/* Quality filters */}
-          <div className="px-2 pb-2 flex flex-wrap gap-1 flex-shrink-0">
-            {['m','7','maj7','m7','sus2','sus4','dim','aug','add9'].map(q => (
-              <Button
-                key={q}
-                size="sm"
-                variant={qualityFilter === q ? 'default' : 'outline'}
-                onClick={() => { setQualityFilter(qualityFilter === q ? '' : q); setQuery(''); }}
-                className={`px-2 h-6 text-xs ${qualityFilter === q ? 'bg-blue-500 hover:bg-blue-600 border-blue-500 text-white' : ''}`}
-              >
-                {q}
-              </Button>
-            ))}
-          </div>
+        {/* Home screen: recent + favorites + root selector */}
+        {!query && !rootFilter && (
+          <div className="flex-1 overflow-y-auto px-2 pb-2 flex flex-col gap-3">
+            {recentlyUsed.length > 0 && (
+              <div>
+                <p className="text-muted-foreground text-xs mb-1 uppercase tracking-wide">Recent</p>
+                <div className="flex flex-wrap gap-1">
+                  {recentlyUsed.map(chord => (
+                    <Button
+                      key={chord}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleSelect(chord)}
+                      className="px-3 h-auto py-1.5 text-base font-mono text-amber-600 hover:border-amber-400"
+                    >
+                      {chord}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          {/* Recently used */}
-          {!query && !rootFilter && !qualityFilter && recentlyUsed.length > 0 && (
-            <div className="px-2 pb-1 flex-shrink-0">
-              <p className="text-muted-foreground text-xs mb-1 uppercase tracking-wide">Recent</p>
-              <div className="flex flex-wrap gap-1">
-                {recentlyUsed.map(chord => (
-                  <Button
-                    key={chord}
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleSelect(chord)}
-                    className={`px-2 h-auto py-1 text-sm font-mono ${
-                      preview === chord
-                        ? 'bg-amber-400 text-gray-900 border-amber-400 font-bold hover:bg-amber-500'
-                        : 'text-amber-600 hover:border-amber-400'
-                    }`}
+            {favorites.length > 0 && (
+              <div>
+                <p className="text-muted-foreground text-xs mb-1 uppercase tracking-wide">Favorites ★</p>
+                <div className="flex flex-wrap gap-1">
+                  {favorites.map(chord => (
+                    <Button
+                      key={chord}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleSelect(chord)}
+                      className="px-3 h-auto py-1.5 text-base font-mono text-yellow-600 hover:border-yellow-400"
+                    >
+                      {chord}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <p className="text-muted-foreground text-xs mb-2 uppercase tracking-wide">Pick a root note</p>
+              <div className="grid grid-cols-4 gap-2">
+                {['C','D','E','F','G','A','B','C#','D#','F#','G#','A#'].map(root => (
+                  <button
+                    key={root}
+                    onClick={() => setRootFilter(root)}
+                    className="flex items-center justify-center py-4 text-xl font-mono font-bold rounded-xl border border-border bg-card hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
                   >
-                    {chord}
-                  </Button>
+                    {root}
+                  </button>
                 ))}
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Favorites */}
-          {!query && !rootFilter && favorites.length > 0 && (
-            <div className="px-2 pb-1 flex-shrink-0">
-              <p className="text-muted-foreground text-xs mb-1 uppercase tracking-wide">Favorites ★</p>
-              <div className="flex flex-wrap gap-1">
-                {favorites.map(chord => (
-                  <Button
-                    key={chord}
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleSelect(chord)}
-                    className={`px-2 h-auto py-1 text-sm font-mono ${
-                      preview === chord
-                        ? 'bg-amber-400 text-gray-900 border-amber-400 font-bold hover:bg-amber-500'
-                        : 'text-yellow-600 hover:border-yellow-400'
-                    }`}
-                  >
-                    {chord}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Chord grid */}
+        {/* Chord grid (root selected or searching) */}
+        {(query || rootFilter) && (
           <div className="flex-1 overflow-y-auto px-2 pb-2">
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1">
+            {isSlashChord && (
+              <button
+                onClick={() => handleSelect(query.trim())}
+                className="w-full mb-2 flex items-center justify-center py-3 text-base font-mono font-bold rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-700 hover:bg-amber-100 transition-colors"
+              >
+                Use "{query.trim()}"
+              </button>
+            )}
+            <div className="grid grid-cols-3 gap-1">
               {filteredChords.map(chord => (
                 <button
                   key={chord}
                   onClick={() => handleSelect(chord)}
-                  className={`relative flex items-center justify-center px-1 py-2 text-sm font-mono rounded-lg border transition-colors ${
-                    preview === chord
-                      ? 'bg-amber-400 text-gray-900 border-amber-400 font-bold'
-                      : 'bg-card text-foreground border-border hover:border-amber-400 hover:text-amber-600'
-                  }`}
+                  className="relative flex items-center justify-center px-1 py-3 text-base font-mono rounded-lg border border-border bg-card hover:border-amber-400 hover:text-amber-600 transition-colors"
                 >
                   <span>{chord}</span>
                   <button
@@ -228,26 +240,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemove, curre
               <p className="text-muted-foreground text-sm text-center py-4">No chords found</p>
             )}
           </div>
-        </div>
-
-        {/* Right: diagram + confirm */}
-        <div className="w-40 md:w-48 flex-shrink-0 border-l border-border flex flex-col items-center justify-between p-3 gap-3 bg-muted">
-          {preview ? (
-            <>
-              <ChordDiagram chordName={preview} size="md" />
-              <Button
-                onClick={handleConfirm}
-                className="w-full bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
-              >
-                Use {preview}
-              </Button>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs text-center">
-              Select a chord to preview
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

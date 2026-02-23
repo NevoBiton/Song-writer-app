@@ -16,8 +16,7 @@ export default function ChordLine({ line, sectionId, onTokenClick, showChords = 
   return (
     <div
       dir={rtl ? 'rtl' : 'ltr'}
-      className="flex flex-wrap items-end leading-loose py-1"
-      style={{ fontFamily: 'inherit' }}
+      className="flex flex-wrap items-end leading-loose py-1 font-song"
     >
       {line.tokens.map(token => (
         <WordToken

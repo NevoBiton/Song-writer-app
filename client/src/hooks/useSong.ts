@@ -158,22 +158,80 @@ export function useSong(
     const existingSection = song.sections.find(s => s.id === sectionId);
     if (!existingSection) return;
 
-    // Preserve existing chord mappings where possible
-    const existingChords = new Map<string, string>();
-    existingSection.lines.forEach(line => {
-      line.tokens.forEach(token => {
-        if (token.chord && !token.isSpace) {
-          existingChords.set(token.text, token.chord);
-        }
-      });
-    });
-
     const newLines = tokenizeLines(text);
+
+    // Flatten all word tokens from old and new sections
+    const oldWords = existingSection.lines.flatMap(l => l.tokens.filter(t => !t.isSpace));
+    const newWords = newLines.flatMap(l => l.tokens.filter(t => !t.isSpace));
+
+    // LCS: find which new words match which old words (by text)
+    const m = oldWords.length;
+    const n = newWords.length;
+    const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        dp[i][j] = oldWords[i - 1].text === newWords[j - 1].text
+          ? dp[i - 1][j - 1] + 1
+          : Math.max(dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+
+    // Backtrack to build newWordIndex → oldWordIndex map
+    const matchMap = new Map<number, number>();
+    let i = m, j = n;
+    while (i > 0 && j > 0) {
+      if (oldWords[i - 1].text === newWords[j - 1].text) {
+        matchMap.set(j - 1, i - 1);
+        i--; j--;
+      } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+        i--;
+      } else {
+        j--;
+      }
+    }
+
+    // Fallback: match unmatched old words (with chords) to nearest unmatched new word
+    // This preserves chords when the user edits a word's text (e.g. adds a letter)
+    const matchedOld = new Set(matchMap.values());
+    const matchedNew = new Set(matchMap.keys());
+    const unmatchedOldChords = oldWords
+      .map((t, idx) => ({ t, idx }))
+      .filter(({ t, idx }) => t.chord && !matchedOld.has(idx));
+    const unmatchedNewIdxs = Array.from({ length: n }, (_, idx) => idx)
+      .filter(idx => !matchedNew.has(idx));
+
+    for (const { t: _t, idx: oi } of unmatchedOldChords) {
+      if (unmatchedNewIdxs.length === 0) break;
+      let bestNi = -1, bestDist = Infinity;
+      for (const ni of unmatchedNewIdxs) {
+        const dist = Math.abs(ni - oi);
+        if (dist < bestDist) { bestDist = dist; bestNi = ni; }
+      }
+      if (bestNi !== -1 && bestDist <= 1) {
+        matchMap.set(bestNi, oi);
+        unmatchedNewIdxs.splice(unmatchedNewIdxs.indexOf(bestNi), 1);
+      }
+    }
+
+    // Apply matched chords to new tokens
+    let wordIdx = 0;
+    const restoredLines = newLines.map(line => ({
+      ...line,
+      tokens: line.tokens.map(token => {
+        if (token.isSpace) return token;
+        const newIdx = wordIdx++;
+        const oldIdx = matchMap.get(newIdx);
+        if (oldIdx !== undefined && oldWords[oldIdx].chord) {
+          return { ...token, chord: oldWords[oldIdx].chord };
+        }
+        return token;
+      }),
+    }));
 
     commit({
       ...song,
       sections: song.sections.map(sec =>
-        sec.id !== sectionId ? sec : { ...sec, lines: newLines }
+        sec.id !== sectionId ? sec : { ...sec, lines: restoredLines }
       ),
     });
   }, [song]);

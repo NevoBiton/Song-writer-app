@@ -232,7 +232,7 @@ export const CHORD_LIBRARY: Record<string, ChordDefinition> = {
   'B/F#':  { name: 'B/F#',  root: 'B', quality: 'major', fingers: [2,2,4,4,4,2], baseFret: 2, barres: [2] },
 };
 
-export const ALL_CHORDS: string[] = Object.keys(CHORD_LIBRARY);
+export const ALL_CHORDS: string[] = Object.keys(CHORD_LIBRARY).filter(name => !name.includes('/'));
 
 export const ROOTS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'];
 

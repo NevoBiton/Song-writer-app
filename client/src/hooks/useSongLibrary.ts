@@ -23,7 +23,17 @@ export function apiToSong(data: Record<string, unknown>): Song {
   };
 }
 
+export type DeletedSong = Song & { deletedAt: string };
+
 const SONGS_KEY = ['songs'] as const;
+const DELETED_SONGS_KEY = ['songs', 'deleted'] as const;
+
+function apiToDeletedSong(data: Record<string, unknown>): DeletedSong {
+  return {
+    ...apiToSong(data),
+    deletedAt: data.deleted_at as string,
+  };
+}
 
 export function useSongLibrary() {
   const client = useQueryClient();
@@ -58,12 +68,43 @@ export function useSongLibrary() {
     },
   });
 
+  const { data: deletedSongs = [] } = useQuery({
+    queryKey: DELETED_SONGS_KEY,
+    queryFn: async () => {
+      const { data } = await api.get<Record<string, unknown>[]>('/songs/deleted');
+      return data.map(apiToDeletedSong);
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`/songs/${id}`);
     },
     onMutate: async (id: string) => {
       client.setQueryData<Song[]>(SONGS_KEY, (old = []) => old.filter(s => s.id !== id));
+    },
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: DELETED_SONGS_KEY });
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.post<Record<string, unknown>>(`/songs/deleted/${id}/restore`);
+      return apiToSong(data);
+    },
+    onSuccess: (restored) => {
+      client.setQueryData<Song[]>(SONGS_KEY, (old = []) => [restored, ...old]);
+      client.setQueryData<DeletedSong[]>(DELETED_SONGS_KEY, (old = []) => old.filter(s => s.id !== restored.id));
+    },
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/songs/deleted/${id}`);
+    },
+    onMutate: async (id: string) => {
+      client.setQueryData<DeletedSong[]>(DELETED_SONGS_KEY, (old = []) => old.filter(s => s.id !== id));
     },
   });
 
@@ -151,6 +192,16 @@ export function useSongLibrary() {
     [songs]
   );
 
+  const restoreSong = useCallback(
+    (id: string) => restoreMutation.mutateAsync(id),
+    [restoreMutation]
+  );
+
+  const permanentDeleteSong = useCallback(
+    (id: string) => permanentDeleteMutation.mutateAsync(id),
+    [permanentDeleteMutation]
+  );
+
   return {
     songs,
     loading,
@@ -160,5 +211,8 @@ export function useSongLibrary() {
     updateSong,
     importChordPro,
     getSong,
+    deletedSongs,
+    restoreSong,
+    permanentDeleteSong,
   };
 }

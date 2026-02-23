@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'Gveret Levin';
+  src: url('/fonts/GveretLevin-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-song {
+  font-family: 'Gveret Levin', serif;
+}
+
 @layer base {
   :root {
     --background: 210 18% 92%;

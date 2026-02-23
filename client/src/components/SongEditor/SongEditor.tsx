@@ -415,7 +415,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                 autoFocus
                 dir={song.language === 'he' ? 'rtl' : 'auto'}
                 rows={6}
-                className="w-full rounded-xl px-3 py-2.5 text-base border-2 border-amber-400 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none min-h-[140px] leading-relaxed overflow-hidden"
+                className="w-full rounded-xl px-3 py-2.5 text-base border-2 border-amber-400 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none min-h-[140px] leading-relaxed overflow-hidden font-song"
                 placeholder={song.language === 'he' ? 'הקלד מילות השיר כאן...' : 'Type your lyrics here, one line per line...'}
                 style={{ height: 'auto' }}
               />
