@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +31,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [userLoading, setUserLoading] = useState(true);
   const { isDark, toggleTheme } = useTheme();
   const { uiLang, setUiLang, t } = useUILanguage();
   const [showHelp, setShowHelp] = useState(false);
@@ -39,6 +41,7 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      setUserLoading(false);
     });
   }, []);
 
@@ -167,6 +170,12 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
               </DropdownMenu>
 
               {/* User dropdown */}
+              {userLoading ? (
+                <div className="flex items-center gap-1.5 px-2">
+                  <Skeleton className="w-6 h-6 rounded-full" />
+                  <Skeleton className="hidden sm:block h-3 w-16" />
+                </div>
+              ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-1.5 text-foreground hover:bg-accent px-2 h-8">
@@ -204,6 +213,7 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              )}
             </div>
           </div>
         </div>

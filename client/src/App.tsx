@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useNavigationType, useLocation } from 'react-router-dom';
 import { Session } from '@supabase/supabase-js';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog';
 import { Label } from './components/ui/label';
@@ -38,8 +38,27 @@ function AuthenticatedApp() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
+  const [displayName, setDisplayName] = useState('');
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
+  const location = useLocation();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user;
+      setDisplayName(
+        u?.user_metadata?.full_name || u?.user_metadata?.name || u?.email?.split('@')[0] || ''
+      );
+    });
+  }, []);
+
+  // Clear active song when user navigates with browser back/forward
+  useEffect(() => {
+    if (navigationType === 'POP') {
+      setActiveSong(null);
+    }
+  }, [location, navigationType]);
 
   function handleSelectSong(song: Song) {
     setActiveSong(song);
@@ -114,6 +133,8 @@ function AuthenticatedApp() {
           element={layout(
             <HomePage
               songs={songs}
+              loading={loading}
+              displayName={displayName}
               onSelectSong={handleSelectSong}
               onNewSong={openCreateDialog}
             />

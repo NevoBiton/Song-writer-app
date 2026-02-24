@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Music, Plus, BookOpen, Clock } from 'lucide-react';
 import { Song } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { supabase } from '@/lib/supabase';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Props {
   songs: Song[];
+  loading?: boolean;
+  displayName?: string;
   onSelectSong: (song: Song) => void;
   onNewSong: () => void;
 }
@@ -25,18 +26,8 @@ function timeAgo(iso: string | undefined): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function HomePage({ songs, onSelectSong, onNewSong }: Props) {
-  const [displayName, setDisplayName] = useState('');
+export default function HomePage({ songs, loading, displayName, onSelectSong, onNewSong }: Props) {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user;
-      setDisplayName(
-        u?.user_metadata?.full_name || u?.user_metadata?.name || u?.email?.split('@')[0] || ''
-      );
-    });
-  }, []);
   const recent = songs.slice(0, 4);
 
   return (
@@ -44,13 +35,24 @@ export default function HomePage({ songs, onSelectSong, onNewSong }: Props) {
       {/* Hero greeting */}
       <div className="relative overflow-hidden rounded-2xl bg-amber-400 p-8">
         <div className="relative z-10">
-          <p className="text-amber-900 text-sm font-semibold uppercase tracking-wider mb-1">Welcome back</p>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {displayName} 👋
-          </h1>
-          <p className="text-amber-800 mb-6 max-w-sm">
-            You have {songs.length} {songs.length === 1 ? 'song' : 'songs'} in your collection. Keep writing!
-          </p>
+          <p className="text-amber-900 text-sm font-semibold uppercase tracking-wider mb-2">Welcome back</p>
+
+          {loading || !displayName ? (
+            <div className="space-y-2 mb-6">
+              <Skeleton className="h-9 w-48 bg-amber-300/60" />
+              <Skeleton className="h-4 w-64 bg-amber-300/60" />
+            </div>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                {displayName} 👋
+              </h1>
+              <p className="text-amber-800 mb-6 max-w-sm">
+                You have {songs.length} {songs.length === 1 ? 'song' : 'songs'} in your collection. Keep writing!
+              </p>
+            </>
+          )}
+
           <div className="flex gap-3 flex-wrap">
             <Button
               onClick={onNewSong}
@@ -77,27 +79,55 @@ export default function HomePage({ songs, onSelectSong, onNewSong }: Props) {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        {[
-          { icon: Music, label: 'Total Songs', value: songs.length },
-          { icon: BookOpen, label: 'With Chords', value: songs.filter(s => s.sections.some(sec => sec.lines.some(l => l.tokens.some(t => t.chord)))).length },
-          { icon: Clock, label: 'This Week', value: songs.filter(s => { const d = new Date(s.updatedAt); return !isNaN(d.getTime()) && Date.now() - d.getTime() < 7 * 86400000; }).length },
-        ].map(({ icon: Icon, label, value }) => (
-          <Card key={label} className="border-border">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
-                <Icon className="w-4 h-4 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{value}</p>
-                <p className="text-xs text-muted-foreground">{label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {loading
+          ? Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="border-border">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Skeleton className="w-9 h-9 rounded-lg flex-shrink-0" />
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-6 w-8" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          : [
+              { icon: Music, label: 'Total Songs', value: songs.length },
+              { icon: BookOpen, label: 'With Chords', value: songs.filter(s => s.sections.some(sec => sec.lines.some(l => l.tokens.some(t => t.chord)))).length },
+              { icon: Clock, label: 'This Week', value: songs.filter(s => { const d = new Date(s.updatedAt); return !isNaN(d.getTime()) && Date.now() - d.getTime() < 7 * 86400000; }).length },
+            ].map(({ icon: Icon, label, value }) => (
+              <Card key={label} className="border-border">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{value}</p>
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+        }
       </div>
 
+      {/* Recent songs skeleton */}
+      {loading && (
+        <div>
+          <Skeleton className="h-5 w-36 mb-3" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="p-4 rounded-xl border border-border space-y-2">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Recent songs */}
-      {recent.length > 0 && (
+      {!loading && recent.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-foreground">Recently Edited</h2>
@@ -140,7 +170,7 @@ export default function HomePage({ songs, onSelectSong, onNewSong }: Props) {
       )}
 
       {/* Empty state */}
-      {songs.length === 0 && (
+      {!loading && songs.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
           <div className="w-20 h-20 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
             <Music className="w-10 h-10 text-amber-400" />

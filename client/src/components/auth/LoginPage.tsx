@@ -34,19 +34,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-gray-50 flex flex-col items-center justify-center px-5 py-10">
       <div className="w-full max-w-sm">
+
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-amber-400 rounded-2xl flex items-center justify-center shadow-md mb-3">
-            <Music2 className="w-6 h-6 text-gray-900" />
+          <div className="w-14 h-14 bg-amber-400 rounded-2xl flex items-center justify-center shadow-md mb-3">
+            <Music2 className="w-7 h-7 text-gray-900" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">WordChord</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Sign in to your account</p>
+          <h1 className="text-2xl font-bold text-gray-900">WordChord</h1>
+          <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
@@ -59,7 +60,7 @@ export default function LoginPage() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="focus-visible:ring-amber-400"
+                className="h-11 focus-visible:ring-amber-400"
               />
             </div>
 
@@ -73,12 +74,12 @@ export default function LoginPage() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="focus-visible:ring-amber-400"
+                className="h-11 focus-visible:ring-amber-400"
               />
             </div>
 
             {error && (
-              <p className="text-sm text-red-500 bg-red-50 dark:bg-red-950/30 rounded-lg px-3 py-2">
+              <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
                 {error}
               </p>
             )}
@@ -86,7 +87,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
+              className="w-full h-11 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
             >
               {loading ? 'Signing in…' : 'Sign In'}
             </Button>
@@ -94,17 +95,17 @@ export default function LoginPage() {
 
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+              <div className="w-full border-t border-gray-100" />
             </div>
             <div className="relative flex justify-center text-xs text-gray-400">
-              <span className="bg-white dark:bg-gray-900 px-2">or</span>
+              <span className="bg-white px-2">or</span>
             </div>
           </div>
 
           <Button
             type="button"
             variant="outline"
-            className="w-full gap-2"
+            className="w-full h-11 gap-2 border-gray-200 text-gray-700 font-medium"
             onClick={handleGoogle}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -117,7 +118,7 @@ export default function LoginPage() {
           </Button>
         </div>
 
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
+        <p className="text-center text-sm text-gray-500 mt-5">
           Don't have an account?{' '}
           <Link to="/sign-up" className="text-amber-600 hover:text-amber-700 font-medium">
             Sign up

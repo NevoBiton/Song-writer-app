@@ -1,4 +1,4 @@
-# Song Notebook — Monorepo
+# WordChord — Monorepo
 
 Full-stack chord notebook app. React frontend + Express/PostgreSQL backend.
 
