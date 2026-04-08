@@ -54,7 +54,7 @@ function formatSongForShare(song: Song): string {
   for (const section of song.sections) {
     if (section.label) lines.push(`[${section.label}]`);
     for (const line of section.lines) {
-      const chordLine = line.tokens.map(t => t.chord ? t.chord.padEnd(Math.max(t.chord.length, t.text.length + 1)) : ' '.repeat(t.text.length + 1)).join('').trimEnd();
+      const chordLine = line.tokens.map(t => { const c = t.chords?.join(' ') || ''; return c ? c.padEnd(Math.max(c.length, t.text.length + 1)) : ' '.repeat(t.text.length + 1); }).join('').trimEnd();
       const wordLine = line.tokens.map(t => t.text).join('');
       if (chordLine.trim()) lines.push(chordLine);
       if (wordLine.trim()) lines.push(wordLine);

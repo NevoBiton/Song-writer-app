@@ -9,7 +9,7 @@ function uid(): string {
  * Safe to call on already-migrated tokens.
  */
 export function migrateToken(raw: Record<string, unknown>): Token {
-  const token = raw as Token & { chord?: string };
+  const token = raw as unknown as Token & { chord?: string };
   if (token.chord && !token.chords) {
     const { chord, ...rest } = token;
     return { ...rest, chords: [chord] };
@@ -24,7 +24,7 @@ export function migrateSong(song: Song): Song {
       ...sec,
       lines: sec.lines.map(line => ({
         ...line,
-        tokens: line.tokens.map(t => migrateToken(t as Record<string, unknown>)),
+        tokens: line.tokens.map(t => migrateToken(t as unknown as Record<string, unknown>)),
       })),
     })),
   };
