@@ -51,7 +51,7 @@ export default function RegisterPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -60,12 +60,12 @@ export default function RegisterPage() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="h-11 focus-visible:ring-amber-400"
+                className="h-11 focus-visible:ring-amber-400 text-gray-900 placeholder:text-gray-400"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username" className="text-gray-700 font-medium">Username</Label>
               <Input
                 id="username"
                 type="text"
@@ -74,12 +74,12 @@ export default function RegisterPage() {
                 onChange={e => setUsername(e.target.value)}
                 placeholder="your_name"
                 required
-                className="h-11 focus-visible:ring-amber-400"
+                className="h-11 focus-visible:ring-amber-400 text-gray-900 placeholder:text-gray-400"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -88,12 +88,12 @@ export default function RegisterPage() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="h-11 focus-visible:ring-amber-400"
+                className="h-11 focus-visible:ring-amber-400 text-gray-900 placeholder:text-gray-400"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="confirm">Confirm password</Label>
+              <Label htmlFor="confirm" className="text-gray-700 font-medium">Confirm password</Label>
               <Input
                 id="confirm"
                 type="password"
@@ -102,7 +102,7 @@ export default function RegisterPage() {
                 onChange={e => setConfirm(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="h-11 focus-visible:ring-amber-400"
+                className="h-11 focus-visible:ring-amber-400 text-gray-900 placeholder:text-gray-400"
               />
             </div>
 

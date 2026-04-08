@@ -150,36 +150,19 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
           />
         </div>
 
-        {/* Root selected: back button + quality filters */}
-        {(rootFilter || query) && (
-          <>
-            {rootFilter && (
-              <div className="px-2 md:px-3 pb-1 flex items-center gap-2 flex-shrink-0">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => { setRootFilter(''); setQualityFilter(''); }}
-                  className="text-xs md:text-sm lg:text-base h-7 md:h-9 lg:h-12 px-2 md:px-3 lg:px-5 text-muted-foreground"
-                >
-                  ← Back
-                </Button>
-                <span className="text-base md:text-xl lg:text-3xl font-bold font-mono text-amber-600">{rootFilter}</span>
-              </div>
-            )}
-            <div className="px-2 md:px-3 pb-2 flex flex-wrap gap-1 md:gap-1.5 flex-shrink-0">
-              {['m','7','maj7','m7','sus2','sus4','dim','aug','add9'].map(q => (
-                <Button
-                  key={q}
-                  size="sm"
-                  variant={qualityFilter === q ? 'default' : 'outline'}
-                  onClick={() => { setQualityFilter(qualityFilter === q ? '' : q); setQuery(''); }}
-                  className={`px-2 md:px-3 lg:px-5 h-7 md:h-10 lg:h-12 text-sm md:text-base lg:text-xl ${qualityFilter === q ? 'bg-blue-500 hover:bg-blue-600 border-blue-500 text-white' : ''}`}
-                >
-                  {q}
-                </Button>
-              ))}
-            </div>
-          </>
+        {/* Root selected: back button */}
+        {(rootFilter || query) && rootFilter && (
+          <div className="px-2 md:px-3 pb-1 flex items-center gap-2 flex-shrink-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => { setRootFilter(''); setQualityFilter(''); }}
+              className="text-xs md:text-sm lg:text-base h-7 md:h-9 lg:h-12 px-2 md:px-3 lg:px-5 text-muted-foreground"
+            >
+              ← Back
+            </Button>
+            <span className="text-base md:text-xl lg:text-3xl font-bold font-mono text-amber-600">{rootFilter}</span>
+          </div>
         )}
 
         {/* Home screen: recent + favorites + root selector */}

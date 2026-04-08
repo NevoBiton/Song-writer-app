@@ -80,7 +80,7 @@
 
 @layer utilities {
   .chord-text {
-    @apply text-amber-500 font-bold text-xs leading-none;
+    @apply text-amber-500 font-bold text-sm leading-none;
     direction: ltr;
     unicode-bidi: bidi-override;
     display: inline-block;
@@ -135,7 +135,7 @@
 /* ── iPad Pro and down — bigger touch-friendly fonts ── */
 @media (min-width: 768px) {
   .chord-text {
-    font-size: 0.9rem !important;
+    font-size: 1.1rem !important;
     line-height: 1.2 !important;
   }
 
