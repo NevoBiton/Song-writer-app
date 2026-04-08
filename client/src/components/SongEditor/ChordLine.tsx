@@ -5,7 +5,7 @@ import WordToken from './WordToken';
 interface Props {
   line: Line;
   sectionId: string;
-  onTokenClick: (sectionId: string, lineId: string, tokenId: string, currentChord?: string) => void;
+  onTokenClick: (sectionId: string, lineId: string, tokenId: string) => void;
   showChords?: boolean;
 }
 
@@ -22,11 +22,11 @@ export default function ChordLine({ line, sectionId, onTokenClick, showChords = 
         <WordToken
           key={token.id}
           text={token.text}
-          chord={showChords ? token.chord : undefined}
+          chords={showChords ? token.chords : undefined}
           isSpace={token.isSpace}
           isRTL={rtl}
-          onWordClick={() => onTokenClick(sectionId, line.id, token.id, undefined)}
-          onChordClick={() => onTokenClick(sectionId, line.id, token.id, token.chord)}
+          onWordClick={() => onTokenClick(sectionId, line.id, token.id)}
+          onChordClick={() => onTokenClick(sectionId, line.id, token.id)}
         />
       ))}
     </div>

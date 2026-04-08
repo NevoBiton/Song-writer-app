@@ -1,7 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Song, Section } from '../types';
-import { tokenizeLines } from '../utils/chordParser';
+import { tokenizeLines, migrateSong } from '../utils/chordParser';
 import { transposeSong } from '../utils/transpose';
+
+const MAX_CHORDS = 5;
 
 function detectLanguage(sections: Section[]): Song['language'] {
   const allText = sections
@@ -28,8 +30,8 @@ export function useSong(
   initialSong: Song,
   onSave?: (song: Song) => void
 ) {
-  const [song, setSong] = useState<Song>(initialSong);
-  const [history, setHistory] = useState<Song[]>([initialSong]);
+  const [song, setSong] = useState<Song>(() => migrateSong(initialSong));
+  const [history, setHistory] = useState<Song[]>(() => [migrateSong(initialSong)]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [savedIndicator, setSavedIndicator] = useState(false);
   const saveTimer = useRef<number | null>(null);
@@ -37,8 +39,9 @@ export function useSong(
 
   // Sync when external song changes (e.g. switching songs)
   useEffect(() => {
-    setSong(initialSong);
-    setHistory([initialSong]);
+    const migrated = migrateSong(initialSong);
+    setSong(migrated);
+    setHistory([migrated]);
     setHistoryIndex(0);
   }, [initialSong.id]);
 
@@ -52,7 +55,6 @@ export function useSong(
       return newHistory;
     });
 
-    // Auto-save with 2s debounce
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
       onSave?.(updated);
@@ -92,9 +94,13 @@ export function useSong(
           lines: sec.lines.map(line =>
             line.id !== lineId ? line : {
               ...line,
-              tokens: line.tokens.map(token =>
-                token.id !== tokenId ? token : { ...token, chord }
-              ),
+              tokens: line.tokens.map(token => {
+                if (token.id !== tokenId) return token;
+                const existing = token.chords || [];
+                if (existing.includes(chord)) return token; // already there
+                if (existing.length >= MAX_CHORDS) return token; // max reached
+                return { ...token, chords: [...existing, chord] };
+              }),
             }
           ),
         }
@@ -102,7 +108,7 @@ export function useSong(
     });
   }, [song]);
 
-  const removeChordFromToken = useCallback((sectionId: string, lineId: string, tokenId: string) => {
+  const removeChordFromToken = useCallback((sectionId: string, lineId: string, tokenId: string, chord: string) => {
     commit({
       ...song,
       sections: song.sections.map(sec =>
@@ -111,9 +117,11 @@ export function useSong(
           lines: sec.lines.map(line =>
             line.id !== lineId ? line : {
               ...line,
-              tokens: line.tokens.map(token =>
-                token.id !== tokenId ? token : { ...token, chord: undefined }
-              ),
+              tokens: line.tokens.map(token => {
+                if (token.id !== tokenId) return token;
+                const remaining = (token.chords || []).filter(c => c !== chord);
+                return { ...token, chords: remaining.length ? remaining : undefined };
+              }),
             }
           ),
         }
@@ -171,11 +179,9 @@ export function useSong(
 
     const newLines = tokenizeLines(text);
 
-    // Flatten all word tokens from old and new sections
     const oldWords = existingSection.lines.flatMap(l => l.tokens.filter(t => !t.isSpace));
     const newWords = newLines.flatMap(l => l.tokens.filter(t => !t.isSpace));
 
-    // LCS: find which new words match which old words (by text)
     const m = oldWords.length;
     const n = newWords.length;
     const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
@@ -187,7 +193,6 @@ export function useSong(
       }
     }
 
-    // Backtrack to build newWordIndex → oldWordIndex map
     const matchMap = new Map<number, number>();
     let i = m, j = n;
     while (i > 0 && j > 0) {
@@ -201,17 +206,15 @@ export function useSong(
       }
     }
 
-    // Fallback: match unmatched old words (with chords) to nearest unmatched new word
-    // This preserves chords when the user edits a word's text (e.g. adds a letter)
     const matchedOld = new Set(matchMap.values());
     const matchedNew = new Set(matchMap.keys());
     const unmatchedOldChords = oldWords
       .map((t, idx) => ({ t, idx }))
-      .filter(({ t, idx }) => t.chord && !matchedOld.has(idx));
+      .filter(({ t, idx }) => t.chords?.length && !matchedOld.has(idx));
     const unmatchedNewIdxs = Array.from({ length: n }, (_, idx) => idx)
       .filter(idx => !matchedNew.has(idx));
 
-    for (const { t: _t, idx: oi } of unmatchedOldChords) {
+    for (const { idx: oi } of unmatchedOldChords) {
       if (unmatchedNewIdxs.length === 0) break;
       let bestNi = -1, bestDist = Infinity;
       for (const ni of unmatchedNewIdxs) {
@@ -224,7 +227,6 @@ export function useSong(
       }
     }
 
-    // Apply matched chords to new tokens
     let wordIdx = 0;
     const restoredLines = newLines.map(line => ({
       ...line,
@@ -232,8 +234,8 @@ export function useSong(
         if (token.isSpace) return token;
         const newIdx = wordIdx++;
         const oldIdx = matchMap.get(newIdx);
-        if (oldIdx !== undefined && oldWords[oldIdx].chord) {
-          return { ...token, chord: oldWords[oldIdx].chord };
+        if (oldIdx !== undefined && oldWords[oldIdx].chords?.length) {
+          return { ...token, chords: oldWords[oldIdx].chords };
         }
         return token;
       }),

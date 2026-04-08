@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: song-notebook-api
+    name: wordchord-api
     runtime: node
     rootDir: server
     buildCommand: npm ci && npm run build
@@ -13,6 +13,6 @@ services:
       - key: DATABASE_URL
         sync: false   # paste your Neon connection string in the Render dashboard
       - key: JWT_SECRET
-        sync: false   # generate with: openssl rand -hex 32
+        sync: false   # a long random secret string, e.g. generate with: openssl rand -hex 32
       - key: ALLOWED_ORIGIN
         sync: false   # your Vercel frontend URL, e.g. https://song-notebook.vercel.app

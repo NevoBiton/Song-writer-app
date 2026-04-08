@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Amber rounded square background (matches login page bg-amber-400 rounded-2xl) -->
+  <rect width="512" height="512" rx="112" fill="#FBBF24"/>
+
+  <!-- Music2 icon from lucide-react, scaled 12.5x, centered (106,106) -->
+  <!-- Original viewBox 0 0 24 24, scale=12.5 → 300×300, offset=106 to center in 512 -->
+  <g transform="translate(106, 106) scale(12.5)" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="8" cy="18" r="4"/>
+    <path d="M12 18V2l7 4"/>
+  </g>
+</svg>

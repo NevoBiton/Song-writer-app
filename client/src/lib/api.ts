@@ -4,21 +4,8 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
 });
 
-// Read token from whichever storage has it
-function getToken(): string | null {
-  return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-}
-
-// Clear auth from both storages
-function clearAuth(): void {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('auth_user');
-  sessionStorage.removeItem('auth_token');
-  sessionStorage.removeItem('auth_user');
-}
-
 api.interceptors.request.use((config) => {
-  const token = getToken();
+  const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -28,13 +15,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (
-      error.response?.status === 401 &&
-      !window.location.pathname.startsWith('/login') &&
-      !window.location.pathname.startsWith('/register')
-    ) {
-      clearAuth();
-      window.location.href = '/login';
+    if (error.response?.status === 401) {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('auth_user');
+      window.location.href = '/sign-in';
     }
     return Promise.reject(error);
   }

@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Music2, LogOut, User, Globe, Sun, Moon, HelpCircle,
-  BookOpen, Home, ChevronRight,
+  Music2, LogOut, Globe, Sun, Moon, HelpCircle,
+  BookOpen, ChevronRight,
 } from 'lucide-react';
 import { Song } from '@/types';
-import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useUILanguage } from '@/context/UILanguageContext';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -20,7 +20,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import ProfileModal from '@/components/profile/ProfileModal';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -28,26 +27,26 @@ interface AppLayoutProps {
   onBackToLibrary?: () => void;
 }
 
-function getAvatarUrl(avatar: string | null | undefined, username: string): string {
-  if (!avatar) return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(username)}&backgroundColor=fbbf24`;
-  if (avatar.startsWith('http')) return avatar;
-  const [style, ...rest] = avatar.split(':');
-  const seed = rest.join(':') || username;
-  return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=fbbf24`;
-}
-
 export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutProps) {
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { uiLang, setUiLang, t } = useUILanguage();
-  const [showProfile, setShowProfile] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const avatarUrl = getAvatarUrl(user?.avatar, user?.username || 'user');
+  const displayName = user?.username || user?.email?.split('@')[0] || 'User';
+  const email = user?.email || '';
+  const avatarUrl =
+    user?.avatar ||
+    `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(displayName)}&backgroundColor=fbbf24`;
+
   const isLibrary = location.pathname === '/library';
-  const isHome = location.pathname === '/';
+
+  function handleSignOut() {
+    logout();
+    navigate('/sign-in');
+  }
 
   return (
     <div
@@ -60,33 +59,19 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
           <div className="flex items-center justify-between h-14">
             {/* Logo */}
             <div
-              className="flex items-center gap-2 cursor-pointer select-none"
+              className="flex items-center gap-2.5 cursor-pointer select-none"
               onClick={() => { onBackToLibrary?.(); navigate('/'); }}
             >
-              <div className="w-7 h-7 bg-amber-400 rounded-lg flex items-center justify-center shadow-sm">
-                <Music2 className="w-3.5 h-3.5 text-gray-900" />
+              <div className="w-9 h-9 bg-amber-400 rounded-xl flex items-center justify-center shadow-sm">
+                <Music2 className="w-5 h-5 text-gray-900" />
               </div>
-              <span className="font-bold text-foreground text-base tracking-tight hidden sm:block">
+              <span className="font-bold text-foreground text-lg tracking-tight">
                 {t.appName}
               </span>
             </div>
 
             {/* Center: nav tabs + optional breadcrumb */}
             <nav className="flex items-center gap-1">
-              {/* Home tab */}
-              <button
-                onClick={() => { onBackToLibrary?.(); navigate('/'); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  isHome && !activeSong
-                    ? 'bg-amber-400/15 text-amber-700 dark:text-amber-400'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                }`}
-              >
-                <Home className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Home</span>
-              </button>
-
-              {/* Library tab */}
               <button
                 onClick={() => { onBackToLibrary?.(); navigate('/library'); }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
@@ -99,7 +84,6 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
                 <span className="hidden sm:inline">{t.myLibrary}</span>
               </button>
 
-              {/* Breadcrumb when editing a song */}
               {activeSong && (
                 <>
                   <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
@@ -168,7 +152,7 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
                       className="w-6 h-6 rounded-full border border-amber-400 object-cover bg-amber-50"
                     />
                     <span className="hidden sm:inline text-xs font-medium max-w-20 truncate">
-                      {user?.username}
+                      {displayName}
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -181,18 +165,16 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
                         className="w-9 h-9 rounded-full border border-amber-400 object-cover bg-amber-50 flex-shrink-0"
                       />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{user?.username}</p>
-                        <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                        <p className="text-xs text-muted-foreground truncate">{email}</p>
                       </div>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShowProfile(true)}>
-                    <User className="w-4 h-4 mr-2" />
-                    {t.profile}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="text-destructive focus:text-destructive"
+                  >
                     <LogOut className="w-4 h-4 mr-2" />
                     {t.signOut}
                   </DropdownMenuItem>
@@ -210,9 +192,6 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {children}
       </main>
-
-      {/* Profile modal */}
-      <ProfileModal open={showProfile} onClose={() => setShowProfile(false)} />
 
       {/* Help dialog */}
       <Dialog open={showHelp} onOpenChange={setShowHelp}>

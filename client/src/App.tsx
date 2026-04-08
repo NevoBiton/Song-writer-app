@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useNavigationType, useLocation } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog';
 import { Label } from './components/ui/label';
 import { Input } from './components/ui/input';
@@ -15,31 +15,42 @@ import LoginPage from './components/auth/LoginPage';
 import RegisterPage from './components/auth/RegisterPage';
 import HomePage from './components/Home/HomePage';
 import { AppLayout } from './components/Layout/AppLayout';
-import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { UILanguageProvider } from './context/UILanguageContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from './components/ui/sonner';
 
 function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 768);
+    const handler = () => setIsMobile(window.innerWidth < 1024);
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
   }, []);
   return isMobile;
 }
 
-
 function AuthenticatedApp() {
   const { songs, loading, createSong, deleteSong, duplicateSong, updateSong, deletedSongs, restoreSong, permanentDeleteSong } =
     useSongLibrary();
+  const { user } = useAuth();
   const [activeSong, setActiveSong] = useState<Song | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
+  const location = useLocation();
+
+  const displayName = user?.username || user?.email?.split('@')[0] || '';
+
+  // Clear active song when user navigates with browser back/forward
+  useEffect(() => {
+    if (navigationType === 'POP') {
+      setActiveSong(null);
+    }
+  }, [location, navigationType]);
 
   function handleSelectSong(song: Song) {
     setActiveSong(song);
@@ -107,13 +118,15 @@ function AuthenticatedApp() {
   return (
     <>
       <Routes>
-        <Route path="/login" element={<Navigate to="/" replace />} />
-        <Route path="/register" element={<Navigate to="/" replace />} />
+        <Route path="/sign-in" element={<Navigate to="/" replace />} />
+        <Route path="/sign-up" element={<Navigate to="/" replace />} />
         <Route
           path="/"
           element={layout(
             <HomePage
               songs={songs}
+              loading={loading}
+              displayName={displayName}
               onSelectSong={handleSelectSong}
               onNewSong={openCreateDialog}
             />
@@ -121,8 +134,9 @@ function AuthenticatedApp() {
         />
         <Route
           path="/library"
-          element={layout(
+          element={
             activeSong ? (
+              // SongEditor is full-viewport — rendered outside the AppLayout padded container
               <SongEditor
                 song={activeSong}
                 onSave={handleSaveSong}
@@ -130,20 +144,22 @@ function AuthenticatedApp() {
                 isMobile={isMobile}
               />
             ) : (
-              <SongList
-                songs={songs}
-                loading={loading}
-                onSelectSong={handleSelectSong}
-                onNewSong={openCreateDialog}
-                onDeleteSong={handleDeleteSong}
-                onDuplicateSong={handleDuplicateSong}
-                deletedSongs={deletedSongs}
-                onRestoreSong={handleRestoreSong}
-                onPermanentDeleteSong={handlePermanentDeleteSong}
-                isMobile={isMobile}
-              />
+              layout(
+                <SongList
+                  songs={songs}
+                  loading={loading}
+                  onSelectSong={handleSelectSong}
+                  onNewSong={openCreateDialog}
+                  onDeleteSong={handleDeleteSong}
+                  onDuplicateSong={handleDuplicateSong}
+                  deletedSongs={deletedSongs}
+                  onRestoreSong={handleRestoreSong}
+                  onPermanentDeleteSong={handlePermanentDeleteSong}
+                  isMobile={isMobile}
+                />
+              )
             )
-          )}
+          }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -162,7 +178,7 @@ function AuthenticatedApp() {
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleCreateSong()}
-                placeholder="e.g. Hey Jude / שיר לשבת"
+                placeholder="Song title"
                 className="focus-visible:ring-amber-400"
               />
             </div>
@@ -189,9 +205,9 @@ function AppRoutes() {
   if (!isAuthenticated) {
     return (
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="/sign-in" element={<LoginPage />} />
+        <Route path="/sign-up" element={<RegisterPage />} />
+        <Route path="*" element={<Navigate to="/sign-in" replace />} />
       </Routes>
     );
   }
@@ -204,12 +220,12 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <UILanguageProvider>
-          <AuthProvider>
-            <BrowserRouter>
+          <BrowserRouter>
+            <AuthProvider>
               <AppRoutes />
               <Toaster />
-            </BrowserRouter>
-          </AuthProvider>
+            </AuthProvider>
+          </BrowserRouter>
         </UILanguageProvider>
       </ThemeProvider>
     </QueryClientProvider>
