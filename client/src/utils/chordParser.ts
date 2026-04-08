@@ -1,41 +1,69 @@
-import { Line, Token, Section } from '../types';
+import { Line, Token, Section, Song } from '../types';
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
 /**
- * Parse a ChordPro line like "[Am]Hello [G]world" into tokens.
- * Returns an array of Token objects.
+ * Migrate old single-chord token format ({ chord: "Am" }) to new multi-chord format.
+ * Safe to call on already-migrated tokens.
+ */
+export function migrateToken(raw: Record<string, unknown>): Token {
+  const token = raw as Token & { chord?: string };
+  if (token.chord && !token.chords) {
+    const { chord, ...rest } = token;
+    return { ...rest, chords: [chord] };
+  }
+  return token as Token;
+}
+
+export function migrateSong(song: Song): Song {
+  return {
+    ...song,
+    sections: song.sections.map(sec => ({
+      ...sec,
+      lines: sec.lines.map(line => ({
+        ...line,
+        tokens: line.tokens.map(t => migrateToken(t as Record<string, unknown>)),
+      })),
+    })),
+  };
+}
+
+/**
+ * Parse a ChordPro line like "[Am][G]Hello [F]world" into tokens.
+ * Multiple consecutive chord markers before a word become a chords array.
  */
 export function parseChordProLine(lineText: string): Token[] {
   const tokens: Token[] = [];
-  // Split on chord markers [...]
   const parts = lineText.split(/(\[[^\]]*\])/);
-  let pendingChord: string | undefined;
+  const pendingChords: string[] = [];
 
   for (const part of parts) {
     const chordMatch = part.match(/^\[([^\]]*)\]$/);
     if (chordMatch) {
-      pendingChord = chordMatch[1];
+      pendingChords.push(chordMatch[1]);
     } else if (part) {
-      // Split into words and spaces
       const wordParts = part.split(/(\s+)/);
       for (const wp of wordParts) {
         if (!wp) continue;
         if (/^\s+$/.test(wp)) {
           tokens.push({ id: uid(), text: wp, isSpace: true });
         } else {
-          tokens.push({ id: uid(), text: wp, chord: pendingChord });
-          pendingChord = undefined;
+          tokens.push({
+            id: uid(),
+            text: wp,
+            chords: pendingChords.length ? [...pendingChords] : undefined,
+          });
+          pendingChords.length = 0;
         }
       }
     }
   }
 
-  // If there's a dangling chord at end, attach to empty token
-  if (pendingChord !== undefined) {
-    tokens.push({ id: uid(), text: '', chord: pendingChord });
+  // Dangling chords at end → attach to empty token
+  if (pendingChords.length) {
+    tokens.push({ id: uid(), text: '', chords: [...pendingChords] });
   }
 
   return tokens;
@@ -53,7 +81,6 @@ export function parseChordPro(text: string): Line[] {
 
 /**
  * Parse the full ChordPro document into sections.
- * Supports {title:}, {artist:}, {key:}, {sov}/{eov}, {soc}/{eoc}, {c:} directives.
  */
 export function parseChordProDocument(text: string): {
   title?: string;
@@ -87,7 +114,6 @@ export function parseChordProDocument(text: string): {
   for (const raw of lines) {
     const line = raw.trim();
 
-    // Directives
     const directiveMatch = line.match(/^\{([^:}]+)(?::([^}]*))?\}$/);
     if (directiveMatch) {
       const directive = directiveMatch[1].trim().toLowerCase();
@@ -101,23 +127,17 @@ export function parseChordProDocument(text: string): {
           flushSection();
           currentSection = { id: uid(), type: 'verse', label: 'Verse', lines: [] };
           break;
-        case 'eov': case 'end_of_verse':
-          flushSection();
-          break;
+        case 'eov': case 'end_of_verse': flushSection(); break;
         case 'soc': case 'start_of_chorus':
           flushSection();
           currentSection = { id: uid(), type: 'chorus', label: 'Chorus', lines: [] };
           break;
-        case 'eoc': case 'end_of_chorus':
-          flushSection();
-          break;
+        case 'eoc': case 'end_of_chorus': flushSection(); break;
         case 'sob': case 'start_of_bridge':
           flushSection();
           currentSection = { id: uid(), type: 'bridge', label: 'Bridge', lines: [] };
           break;
-        case 'eob': case 'end_of_bridge':
-          flushSection();
-          break;
+        case 'eob': case 'end_of_bridge': flushSection(); break;
         case 'c': case 'comment':
           if (currentSection) currentSection.label = value;
           break;
@@ -125,9 +145,7 @@ export function parseChordProDocument(text: string): {
       continue;
     }
 
-    // Regular line
     if (!currentSection) {
-      // Auto-create a verse section if we see lyric content
       if (line && (line.includes('[') || /[a-zA-Z\u0590-\u05FF]/.test(line))) {
         currentSection = { id: uid(), type: 'verse', label: 'Verse', lines: [] };
       }
@@ -143,14 +161,15 @@ export function parseChordProDocument(text: string): {
 
 /**
  * Serialize Line[] back to ChordPro inline format.
+ * Multiple chords: [Am][G]Hello
  */
 export function serializeToChordPro(lines: Line[]): string {
-  return lines.map(line => {
-    return line.tokens.map(token => {
-      const chordPart = token.chord ? `[${token.chord}]` : '';
+  return lines.map(line =>
+    line.tokens.map(token => {
+      const chordPart = (token.chords || []).map(c => `[${c}]`).join('');
       return `${chordPart}${token.text}`;
-    }).join('');
-  }).join('\n');
+    }).join('')
+  ).join('\n');
 }
 
 /**
@@ -179,9 +198,6 @@ export function sectionToPlainText(lines: Line[]): string {
   ).join('\n');
 }
 
-/**
- * Get ChordPro text from a section's lines.
- */
 export function sectionToChordPro(lines: Line[]): string {
   return serializeToChordPro(lines);
 }

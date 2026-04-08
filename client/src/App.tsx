@@ -21,9 +21,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from './components/ui/sonner';
 
 function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 768);
+    const handler = () => setIsMobile(window.innerWidth < 1024);
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
   }, []);
@@ -134,8 +134,9 @@ function AuthenticatedApp() {
         />
         <Route
           path="/library"
-          element={layout(
+          element={
             activeSong ? (
+              // SongEditor is full-viewport — rendered outside the AppLayout padded container
               <SongEditor
                 song={activeSong}
                 onSave={handleSaveSong}
@@ -143,20 +144,22 @@ function AuthenticatedApp() {
                 isMobile={isMobile}
               />
             ) : (
-              <SongList
-                songs={songs}
-                loading={loading}
-                onSelectSong={handleSelectSong}
-                onNewSong={openCreateDialog}
-                onDeleteSong={handleDeleteSong}
-                onDuplicateSong={handleDuplicateSong}
-                deletedSongs={deletedSongs}
-                onRestoreSong={handleRestoreSong}
-                onPermanentDeleteSong={handlePermanentDeleteSong}
-                isMobile={isMobile}
-              />
+              layout(
+                <SongList
+                  songs={songs}
+                  loading={loading}
+                  onSelectSong={handleSelectSong}
+                  onNewSong={openCreateDialog}
+                  onDeleteSong={handleDeleteSong}
+                  onDuplicateSong={handleDuplicateSong}
+                  deletedSongs={deletedSongs}
+                  onRestoreSong={handleRestoreSong}
+                  onPermanentDeleteSong={handlePermanentDeleteSong}
+                  isMobile={isMobile}
+                />
+              )
             )
-          )}
+          }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -175,7 +178,7 @@ function AuthenticatedApp() {
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleCreateSong()}
-                placeholder="e.g. Hey Jude / שיר לשבת"
+                placeholder="Song title"
                 className="focus-visible:ring-amber-400"
               />
             </div>

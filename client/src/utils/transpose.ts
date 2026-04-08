@@ -64,7 +64,7 @@ export function transposeSong(song: Song, semitones: number): Song {
         ...line,
         tokens: line.tokens.map(token => ({
           ...token,
-          chord: token.chord ? transposeChord(token.chord, semitones) : undefined,
+          chords: token.chords?.map(c => transposeChord(c, semitones)),
         })),
       })),
     })),

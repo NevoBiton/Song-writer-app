@@ -80,7 +80,7 @@
 
 @layer utilities {
   .chord-text {
-    @apply text-amber-500 font-bold text-sm leading-none;
+    @apply text-amber-500 font-bold text-xs leading-none;
     direction: ltr;
     unicode-bidi: bidi-override;
     display: inline-block;
@@ -95,7 +95,7 @@
   }
 
   .token-word {
-    @apply px-0.5 rounded transition-colors duration-100;
+    @apply px-0.5 rounded transition-colors duration-100 text-xl;
   }
 
   .word-token:hover .token-word {
@@ -129,5 +129,21 @@
   .dot-pattern {
     background-image: radial-gradient(circle, rgba(255,193,7,0.3) 1px, transparent 1px);
     background-size: 12px 12px;
+  }
+}
+
+/* ── iPad Pro and down — bigger touch-friendly fonts ── */
+@media (min-width: 768px) {
+  .chord-text {
+    font-size: 0.9rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .token-word {
+    font-size: 1.5rem !important;
+  }
+
+  .word-token {
+    margin-bottom: 3px;
   }
 }

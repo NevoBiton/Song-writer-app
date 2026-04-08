@@ -25,7 +25,7 @@ export interface Line {
 export interface Token {
   id: string;
   text: string;
-  chord?: string;
+  chords?: string[];   // up to 5 chords per token
   isSpace?: boolean;
 }
 

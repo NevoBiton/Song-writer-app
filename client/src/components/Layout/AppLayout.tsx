@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Music2, LogOut, Globe, Sun, Moon, HelpCircle,
-  BookOpen, Home, ChevronRight,
+  BookOpen, ChevronRight,
 } from 'lucide-react';
 import { Song } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
@@ -42,7 +42,6 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
     `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(displayName)}&backgroundColor=fbbf24`;
 
   const isLibrary = location.pathname === '/library';
-  const isHome = location.pathname === '/';
 
   function handleSignOut() {
     logout();
@@ -60,31 +59,19 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
           <div className="flex items-center justify-between h-14">
             {/* Logo */}
             <div
-              className="flex items-center gap-2 cursor-pointer select-none"
+              className="flex items-center gap-2.5 cursor-pointer select-none"
               onClick={() => { onBackToLibrary?.(); navigate('/'); }}
             >
-              <div className="w-7 h-7 bg-amber-400 rounded-lg flex items-center justify-center shadow-sm">
-                <Music2 className="w-3.5 h-3.5 text-gray-900" />
+              <div className="w-9 h-9 bg-amber-400 rounded-xl flex items-center justify-center shadow-sm">
+                <Music2 className="w-5 h-5 text-gray-900" />
               </div>
-              <span className="font-bold text-foreground text-base tracking-tight hidden sm:block">
+              <span className="font-bold text-foreground text-lg tracking-tight">
                 {t.appName}
               </span>
             </div>
 
             {/* Center: nav tabs + optional breadcrumb */}
             <nav className="flex items-center gap-1">
-              <button
-                onClick={() => { onBackToLibrary?.(); navigate('/'); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  isHome && !activeSong
-                    ? 'bg-amber-400/15 text-amber-700 dark:text-amber-400'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                }`}
-              >
-                <Home className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Home</span>
-              </button>
-
               <button
                 onClick={() => { onBackToLibrary?.(); navigate('/library'); }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${

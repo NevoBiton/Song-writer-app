@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Music, Plus, BookOpen, Clock } from 'lucide-react';
+import { Music, Plus, BookOpen } from 'lucide-react';
 import { Song } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -78,9 +78,9 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {loading
-          ? Array.from({ length: 3 }).map((_, i) => (
+          ? Array.from({ length: 2 }).map((_, i) => (
               <Card key={i} className="border-border">
                 <CardContent className="p-4 flex items-center gap-3">
                   <Skeleton className="w-9 h-9 rounded-lg flex-shrink-0" />
@@ -93,10 +93,13 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
             ))
           : [
               { icon: Music, label: 'Total Songs', value: songs.length },
-              { icon: BookOpen, label: 'With Chords', value: songs.filter(s => s.sections.some(sec => sec.lines.some(l => l.tokens.some(t => t.chord)))).length },
-              { icon: Clock, label: 'This Week', value: songs.filter(s => { const d = new Date(s.updatedAt); return !isNaN(d.getTime()) && Date.now() - d.getTime() < 7 * 86400000; }).length },
+              { icon: BookOpen, label: 'With Chords', value: songs.filter(s => s.sections.some(sec => sec.lines.some(l => l.tokens.some(t => t.chords?.length)))).length },
             ].map(({ icon: Icon, label, value }) => (
-              <Card key={label} className="border-border">
+              <Card
+                key={label}
+                className="border-border cursor-pointer hover:border-amber-400 hover:shadow-sm transition-all"
+                onClick={() => navigate('/library')}
+              >
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
                     <Icon className="w-4 h-4 text-amber-600" />
