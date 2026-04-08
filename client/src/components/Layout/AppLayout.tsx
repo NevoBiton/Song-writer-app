@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { User } from '@supabase/supabase-js';
 import {
   Music2, LogOut, Globe, Sun, Moon, HelpCircle,
   BookOpen, Home, ChevronRight,
@@ -8,12 +7,11 @@ import {
 import { Song } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import { useUILanguage } from '@/context/UILanguageContext';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,36 +28,24 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [userLoading, setUserLoading] = useState(true);
+  const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { uiLang, setUiLang, t } = useUILanguage();
   const [showHelp, setShowHelp] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setUserLoading(false);
-    });
-  }, []);
-
-  const displayName =
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    user?.email?.split('@')[0] ||
-    'User';
+  const displayName = user?.username || user?.email?.split('@')[0] || 'User';
   const email = user?.email || '';
   const avatarUrl =
-    user?.user_metadata?.avatar_url ||
+    user?.avatar ||
     `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(displayName)}&backgroundColor=fbbf24`;
 
   const isLibrary = location.pathname === '/library';
   const isHome = location.pathname === '/';
 
-  async function handleSignOut() {
-    await supabase.auth.signOut();
+  function handleSignOut() {
+    logout();
     navigate('/sign-in');
   }
 
@@ -170,12 +156,6 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
               </DropdownMenu>
 
               {/* User dropdown */}
-              {userLoading ? (
-                <div className="flex items-center gap-1.5 px-2">
-                  <Skeleton className="w-6 h-6 rounded-full" />
-                  <Skeleton className="hidden sm:block h-3 w-16" />
-                </div>
-              ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-1.5 text-foreground hover:bg-accent px-2 h-8">
@@ -213,7 +193,6 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              )}
             </div>
           </div>
         </div>

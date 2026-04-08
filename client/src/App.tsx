@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useNavigationType, useLocation } from 'react-router-dom';
-import { Session } from '@supabase/supabase-js';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog';
 import { Label } from './components/ui/label';
 import { Input } from './components/ui/input';
@@ -8,7 +7,6 @@ import { Button } from './components/ui/button';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryClient } from './lib/queryClient';
-import { supabase } from './lib/supabase';
 import { Song } from './types';
 import { useSongLibrary } from './hooks/useSongLibrary';
 import SongList from './components/SongList/SongList';
@@ -19,6 +17,7 @@ import HomePage from './components/Home/HomePage';
 import { AppLayout } from './components/Layout/AppLayout';
 import { ThemeProvider } from './context/ThemeContext';
 import { UILanguageProvider } from './context/UILanguageContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from './components/ui/sonner';
 
 function useIsMobile() {
@@ -34,24 +33,17 @@ function useIsMobile() {
 function AuthenticatedApp() {
   const { songs, loading, createSong, deleteSong, duplicateSong, updateSong, deletedSongs, restoreSong, permanentDeleteSong } =
     useSongLibrary();
+  const { user } = useAuth();
   const [activeSong, setActiveSong] = useState<Song | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
-  const [displayName, setDisplayName] = useState('');
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const navigationType = useNavigationType();
   const location = useLocation();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user;
-      setDisplayName(
-        u?.user_metadata?.full_name || u?.user_metadata?.name || u?.email?.split('@')[0] || ''
-      );
-    });
-  }, []);
+  const displayName = user?.username || user?.email?.split('@')[0] || '';
 
   // Clear active song when user navigates with browser back/forward
   useEffect(() => {
@@ -205,32 +197,9 @@ function AuthenticatedApp() {
 }
 
 function AppRoutes() {
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const { isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      // Clear React Query cache on sign out
-      if (!session) queryClient.clear();
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Still loading
-  if (session === undefined) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!session) {
+  if (!isAuthenticated) {
     return (
       <Routes>
         <Route path="/sign-in" element={<LoginPage />} />
@@ -249,8 +218,10 @@ export default function App() {
       <ThemeProvider>
         <UILanguageProvider>
           <BrowserRouter>
-            <AppRoutes />
-            <Toaster />
+            <AuthProvider>
+              <AppRoutes />
+              <Toaster />
+            </AuthProvider>
           </BrowserRouter>
         </UILanguageProvider>
       </ThemeProvider>

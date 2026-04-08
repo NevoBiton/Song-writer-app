@@ -4,9 +4,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import songRoutes from './routes/songs';
+import authRoutes from './routes/auth';
 
 // ── Validate required environment variables ───────────────────────────────
-const REQUIRED_ENV = ['DATABASE_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'PORT'];
+const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET', 'PORT'];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
     console.error(`❌ Missing required environment variable: ${key}`);
@@ -42,6 +43,7 @@ const apiLimiter = rateLimit({
 app.use('/api', apiLimiter);
 
 // ── Routes ────────────────────────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
 app.use('/api/songs', songRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────
