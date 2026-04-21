@@ -28,6 +28,7 @@ function GoogleOAuthWrapper({ children }: { children: ReactNode }) {
   const locale = uiLang === 'he' ? 'iw' : 'en';
   return (
     <GoogleOAuthProvider
+      key={locale}
       clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}
       locale={locale}
     >
