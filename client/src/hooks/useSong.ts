@@ -171,6 +171,13 @@ export function useSong(
     });
   }, [song]);
 
+  const reorderSections = useCallback((fromIndex: number, toIndex: number) => {
+    const next = [...song.sections];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    commit({ ...song, sections: next });
+  }, [song]);
+
   // ─── Lyrics editing ──────────────────────────────────────────────────
 
   const setLyrics = useCallback((sectionId: string, text: string) => {
@@ -297,5 +304,6 @@ export function useSong(
     updateCapo,
     updateLanguage,
     transpose,
+    reorderSections,
   };
 }

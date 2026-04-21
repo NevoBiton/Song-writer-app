@@ -1,5 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical } from 'lucide-react';
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, verticalListSortingStrategy, useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Song, Section } from '../../types';
 import { useSong } from '../../hooks/useSong';
 import { sectionToPlainText } from '../../utils/chordParser';
@@ -66,6 +74,31 @@ const SECTION_MENU_COLORS: Record<Section['type'], string> = {
 
 const SECTION_TYPES: Section['type'][] = ['verse', 'chorus', 'bridge', 'intro', 'outro', 'custom'];
 
+function SortableSection({ id, children }: { id: string; children: (dragHandle: React.ReactNode) => React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+  const dragHandle = (
+    <button
+      {...attributes}
+      {...listeners}
+      className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing touch-none flex-shrink-0 p-1 -ml-1 rounded"
+      tabIndex={-1}
+    >
+      <GripVertical className="w-4 h-4 md:w-5 md:h-5" />
+    </button>
+  );
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children(dragHandle)}
+    </div>
+  );
+}
+
 function sectionTypeLabel(type: Section['type'], t: T): string {
   const map: Record<Section['type'], string> = {
     verse: t.sectionVerse,
@@ -96,7 +129,20 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     updateCapo,
     updateLanguage,
     transpose,
+    reorderSections,
   } = useSong(initialSong, onSave);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = song.sections.findIndex(s => s.id === active.id);
+    const newIndex = song.sections.findIndex(s => s.id === over.id);
+    reorderSections(oldIndex, newIndex);
+  }
 
   const { t } = useUILanguage();
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -470,12 +516,17 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
       >
         <div className="min-h-full flex flex-col">
           <div className="flex-1 px-4 py-4 pb-20">
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={song.sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
             {song.sections.map(section => (
-              <div key={section.id} className="mb-8">
+              <SortableSection key={section.id} id={section.id}>
+                {dragHandle => (
+              <div className="mb-8">
                 {/* Section header */}
                 <div className="flex items-center gap-2 mb-2 md:mb-3 lg:mb-4">
                   {!previewMode ? (
                     <>
+                      {dragHandle}
                       <Select value={section.type} onValueChange={v => updateSectionType(section.id, v as Section['type'])}>
                         <SelectTrigger className={`h-auto py-0 px-1 w-auto border-none bg-transparent shadow-none text-xs md:text-base lg:text-2xl font-bold uppercase focus:ring-0 ${SECTION_TYPE_COLORS[section.type]}`}>
                           <SelectValue />
@@ -554,7 +605,11 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                   </div>
                 )}
               </div>
+                )}
+              </SortableSection>
             ))}
+              </SortableContext>
+            </DndContext>
           </div>
         </div>
       </div>
