@@ -4,9 +4,18 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
   username: text('username').notNull().unique(),
-  passwordHash: text('password_hash').notNull(),
+  passwordHash: text('password_hash'),            // nullable — Google-only users have no password
+  googleId: text('google_id').unique(),           // nullable — only set for Google OAuth users
   avatar: text('avatar'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
 });
 
 export type User = typeof users.$inferSelect;

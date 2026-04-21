@@ -8,7 +8,7 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/user';
 
 // ── Validate required environment variables ───────────────────────────────
-const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET', 'PORT'];
+const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET', 'PORT', 'GOOGLE_CLIENT_ID', 'RESEND_API_KEY', 'APP_URL'];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
     console.error(`❌ Missing required environment variable: ${key}`);
