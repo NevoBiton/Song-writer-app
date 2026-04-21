@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { useUILanguage } from '@/context/UILanguageContext';
 
 const MAX_CHORDS = 5;
-const NATURAL_ROOTS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 
 interface Props {
   isOpen: boolean;
