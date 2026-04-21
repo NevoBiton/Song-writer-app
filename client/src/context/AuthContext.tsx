@@ -12,9 +12,11 @@ interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<void>;
   register: (email: string, username: string, password: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: AuthUser) => void;
+  storeDirectAuth: (token: string, user: AuthUser) => void;
   isAuthenticated: boolean;
 }
 
@@ -44,6 +46,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(data.user);
   }, []);
 
+  const loginWithGoogle = useCallback(async (credential: string) => {
+    const { data } = await api.post<{ token: string; user: AuthUser }>('/auth/google', { credential });
+    localStorage.setItem('auth_token', data.token);
+    localStorage.setItem('auth_user', JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
+  }, []);
+
+  const storeDirectAuth = useCallback((newToken: string, newUser: AuthUser) => {
+    localStorage.setItem('auth_token', newToken);
+    localStorage.setItem('auth_user', JSON.stringify(newUser));
+    setToken(newToken);
+    setUser(newUser);
+  }, []);
+
   const register = useCallback(async (email: string, username: string, password: string) => {
     const { data } = await api.post<{ token: string; user: AuthUser }>('/auth/register', { email, username, password });
     localStorage.setItem('auth_token', data.token);
@@ -69,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, updateUser, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, login, loginWithGoogle, register, logout, updateUser, storeDirectAuth, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   );

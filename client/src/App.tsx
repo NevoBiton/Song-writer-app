@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useNavigationType, useLocation } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog';
 import { Label } from './components/ui/label';
@@ -13,12 +13,29 @@ import SongList from './components/SongList/SongList';
 import SongEditor from './components/SongEditor/SongEditor';
 import LoginPage from './components/auth/LoginPage';
 import RegisterPage from './components/auth/RegisterPage';
+import ForgotPasswordPage from './components/auth/ForgotPasswordPage';
+import ResetPasswordPage from './components/auth/ResetPasswordPage';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import HomePage from './components/Home/HomePage';
 import { AppLayout } from './components/Layout/AppLayout';
 import { ThemeProvider } from './context/ThemeContext';
 import { UILanguageProvider, useUILanguage } from './context/UILanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from './components/ui/sonner';
+
+function GoogleOAuthWrapper({ children }: { children: ReactNode }) {
+  const { uiLang } = useUILanguage();
+  const locale = uiLang === 'he' ? 'iw' : 'en';
+  return (
+    <GoogleOAuthProvider
+      key={locale}
+      clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}
+      locale={locale}
+    >
+      {children}
+    </GoogleOAuthProvider>
+  );
+}
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
@@ -209,6 +226,8 @@ function AppRoutes() {
       <Routes>
         <Route path="/sign-in" element={<LoginPage />} />
         <Route path="/sign-up" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="*" element={<Navigate to="/sign-in" replace />} />
       </Routes>
     );
@@ -222,12 +241,14 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <UILanguageProvider>
-          <BrowserRouter>
-            <AuthProvider>
-              <AppRoutes />
-              <Toaster />
-            </AuthProvider>
-          </BrowserRouter>
+          <GoogleOAuthWrapper>
+            <BrowserRouter>
+              <AuthProvider>
+                <AppRoutes />
+                <Toaster />
+              </AuthProvider>
+            </BrowserRouter>
+          </GoogleOAuthWrapper>
         </UILanguageProvider>
       </ThemeProvider>
     </QueryClientProvider>

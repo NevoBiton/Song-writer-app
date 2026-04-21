@@ -43,6 +43,13 @@
       "when": 1776774841559,
       "tag": "0005_numerous_richard_fisk",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776798235433,
+      "tag": "0006_new_grandmaster",
+      "breakpoints": true
     }
   ]
 }

@@ -68,6 +68,11 @@ router.put('/password', requireAuth, async (req: AuthRequest, res: Response): Pr
     return;
   }
 
+  if (!user.passwordHash) {
+    res.status(400).json({ error: 'This account uses Google sign-in and has no password to change.' });
+    return;
+  }
+
   const valid = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!valid) {
     res.status(401).json({ error: 'Current password is incorrect' });

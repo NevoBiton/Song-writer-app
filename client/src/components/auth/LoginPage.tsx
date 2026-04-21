@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Music2 } from 'lucide-react';
+import GoogleLoginButton from './GoogleLoginButton';
 import { useAuth } from '../../context/AuthContext';
 import { useUILanguage } from '../../context/UILanguageContext';
+import AuthLanguageToggle from './AuthLanguageToggle';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -12,7 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const { t } = useUILanguage();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -22,20 +24,32 @@ export default function LoginPage() {
     try {
       await login(email, password, true);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '';
-      if ((err as { response?: { data?: { error?: string } } })?.response?.data?.error) {
-        setError((err as { response: { data: { error: string } } }).response.data.error);
-      } else {
-        setError(msg || 'Sign in failed');
-      }
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setError(msg || 'Sign in failed');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogleSuccess(credentialResponse: { credential?: string }) {
+    if (!credentialResponse.credential) return;
+    setError('');
+    setLoading(true);
+    try {
+      await loginWithGoogle(credentialResponse.credential);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setError(msg || 'Google sign-in failed');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-dvh bg-gray-50 flex flex-col items-center justify-center px-5 py-10">
+    <div className="relative min-h-dvh bg-gray-50 flex flex-col items-center justify-center px-5 py-10">
+      <AuthLanguageToggle />
       <div className="w-full max-w-sm">
+
 
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
@@ -65,7 +79,12 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-gray-700 font-medium">{t.passwordLabel}</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-gray-700 font-medium">{t.passwordLabel}</Label>
+                <Link to="/forgot-password" className="text-xs text-amber-600 hover:text-amber-700 font-medium">
+                  {t.forgotPassword}
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
@@ -79,9 +98,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
-                {error}
-              </p>
+              <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
             )}
 
             <Button
@@ -92,6 +109,19 @@ export default function LoginPage() {
               {loading ? t.signingIn : t.signIn}
             </Button>
           </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-4">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-xs text-gray-400 uppercase tracking-wide">{t.orContinueWith}</span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          {/* Google button */}
+          <GoogleLoginButton
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google sign-in failed')}
+          />
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-5">
