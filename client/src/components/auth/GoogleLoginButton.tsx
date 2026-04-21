@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function GoogleLoginButton({ onSuccess, onError }: Props) {
-  const { uiLang } = useUILanguage();
+  const { uiLang } = useUILanguage(); // used as key to force remount on language change
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(320);
 
@@ -29,7 +29,6 @@ export default function GoogleLoginButton({ onSuccess, onError }: Props) {
         theme="outline"
         size="large"
         width={width}
-        locale={uiLang === 'he' ? 'iw' : 'en'}
       />
     </div>
   );
