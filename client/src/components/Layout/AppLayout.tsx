@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Music2, LogOut, Globe, Sun, Moon, HelpCircle,
-  BookOpen,
+  BookOpen, UserCog,
 } from 'lucide-react';
 import { Song } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import ProfileModal, { getAvatarUrl } from '@/components/profile/ProfileModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,14 +34,13 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
   const { isDark, toggleTheme } = useTheme();
   const { uiLang, setUiLang, t } = useUILanguage();
   const [showHelp, setShowHelp] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   const displayName = user?.username || user?.email?.split('@')[0] || 'User';
   const email = user?.email || '';
-  const avatarUrl =
-    user?.avatar ||
-    `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(displayName)}&backgroundColor=fbbf24`;
+  const avatarUrl = getAvatarUrl(user?.avatar, displayName);
 
   const isLibrary = location.pathname === '/library';
 
@@ -158,6 +158,11 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowProfile(true)}>
+                    <UserCog className="w-4 h-4 mr-2" />
+                    {t.profile}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleSignOut}
                     className="text-destructive focus:text-destructive"
@@ -185,6 +190,9 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
           {children}
         </main>
       )}
+
+      {/* Profile modal */}
+      <ProfileModal open={showProfile} onClose={() => setShowProfile(false)} />
 
       {/* Help dialog */}
       <Dialog open={showHelp} onOpenChange={setShowHelp}>

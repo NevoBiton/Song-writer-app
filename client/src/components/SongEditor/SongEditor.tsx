@@ -519,7 +519,10 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
       {/* ── Main content ─────────────────────────────────────────────── */}
       <div
         className="flex-1 overflow-y-auto"
-        style={{ fontSize: previewMode ? fontSize : undefined }}
+        style={previewMode ? {
+          '--song-font-size': `${fontSize}px`,
+          '--song-chord-font-size': `${Math.round(fontSize * 0.65)}px`,
+        } as React.CSSProperties : undefined}
       >
         <div className="min-h-full flex flex-col">
           <div className="flex-1 px-4 py-4 pb-20">
