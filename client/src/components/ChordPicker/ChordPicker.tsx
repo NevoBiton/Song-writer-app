@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { ALL_CHORDS, searchChords, getChordsByQuality, RECENTLY_USED_KEY, FAVORITES_KEY } from '../../data/chords';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useUILanguage } from '@/context/UILanguageContext';
 
 const MAX_CHORDS = 5;
 
@@ -23,6 +24,7 @@ function saveList(key: string, list: string[]): void {
 }
 
 export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, currentChords, isMobile }: Props) {
+  const { t } = useUILanguage();
   const [query, setQuery] = useState('');
   const [rootFilter, setRootFilter] = useState('');
   const [qualityFilter, setQualityFilter] = useState('');
@@ -90,7 +92,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
         {isMobile && (
           <div className="w-10 h-1 bg-border rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-2" />
         )}
-        <h2 className="text-foreground font-bold text-base md:text-xl lg:text-3xl">Pick a Chord</h2>
+        <h2 className="text-foreground font-bold text-base md:text-xl lg:text-3xl">{t.pickAChord}</h2>
         <Button
           variant="ghost"
           size="icon"
@@ -105,7 +107,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
       {currentChords.length > 0 && (
         <div className="px-3 md:px-4 lg:px-5 py-2 md:py-3 border-b border-border flex-shrink-0">
           <p className="text-xs md:text-sm lg:text-base text-muted-foreground mb-1.5 uppercase tracking-wide">
-            Current chords ({currentChords.length}/{MAX_CHORDS})
+            {t.currentChordsLabel} ({currentChords.length}/{MAX_CHORDS})
           </p>
           <div className="flex flex-wrap gap-1.5 md:gap-2">
             {currentChords.map((chord) => (
@@ -131,7 +133,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
       {isAtMax && (
         <div className="px-3 md:px-4 py-2 md:py-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 flex-shrink-0">
           <p className="text-xs md:text-sm lg:text-base text-amber-700 dark:text-amber-400 text-center font-medium">
-            Maximum {MAX_CHORDS} chords reached — remove one to add another
+            {t.maxChordsReached}
           </p>
         </div>
       )}
@@ -144,7 +146,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
             type="text"
             value={query}
             onChange={e => { setQuery(e.target.value); setRootFilter(''); setQualityFilter(''); }}
-            placeholder="Search or type slash chord (C/E)..."
+            placeholder={t.chordSearchPlaceholder}
             className="focus-visible:ring-amber-400 h-11 md:h-14 lg:h-16 text-base md:text-lg lg:text-2xl"
             disabled={isAtMax}
           />
@@ -170,7 +172,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
           <div className="flex-1 overflow-y-auto px-2 md:px-3 lg:px-4 pb-2 flex flex-col gap-3 md:gap-4">
             {recentlyUsed.length > 0 && (
               <div>
-                <p className="text-muted-foreground text-xs md:text-sm lg:text-base mb-1 md:mb-2 uppercase tracking-wide">Recent</p>
+                <p className="text-muted-foreground text-xs md:text-sm lg:text-base mb-1 md:mb-2 uppercase tracking-wide">{t.recentChords}</p>
                 <div className="flex flex-wrap gap-1 md:gap-2">
                   {recentlyUsed.map(chord => (
                     <Button
@@ -190,7 +192,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
 
             {favorites.length > 0 && (
               <div>
-                <p className="text-muted-foreground text-xs md:text-sm lg:text-base mb-1 md:mb-2 uppercase tracking-wide">Favorites ★</p>
+                <p className="text-muted-foreground text-xs md:text-sm lg:text-base mb-1 md:mb-2 uppercase tracking-wide">{t.favoritesLabel} ★</p>
                 <div className="flex flex-wrap gap-1 md:gap-2">
                   {favorites.map(chord => (
                     <Button
@@ -209,7 +211,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
             )}
 
             <div>
-              <p className="text-muted-foreground text-xs md:text-sm lg:text-base mb-2 md:mb-3 uppercase tracking-wide">Pick a root note</p>
+              <p className="text-muted-foreground text-xs md:text-sm lg:text-base mb-2 md:mb-3 uppercase tracking-wide">{t.pickRootNote}</p>
               <div className="grid grid-cols-4 gap-2 md:gap-3">
                 {['C','D','E','F','G','A','B','C#','D#','F#','G#','A#'].map(root => (
                   <button
@@ -266,7 +268,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
               })}
             </div>
             {filteredChords.length === 0 && (
-              <p className="text-muted-foreground text-sm md:text-base lg:text-xl text-center py-4 md:py-6">No chords found</p>
+              <p className="text-muted-foreground text-sm md:text-base lg:text-xl text-center py-4 md:py-6">{t.noChordsFound}</p>
             )}
           </div>
         )}
