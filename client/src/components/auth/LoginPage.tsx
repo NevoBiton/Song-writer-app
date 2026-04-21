@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Music2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useUILanguage } from '../../context/UILanguageContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { t } = useUILanguage();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,14 +43,14 @@ export default function LoginPage() {
             <Music2 className="w-7 h-7 text-gray-900" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">WordChord</h1>
-          <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
+          <p className="text-sm text-gray-500 mt-1">{t.signInToAccount}</p>
         </div>
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
+              <Label htmlFor="email" className="text-gray-700 font-medium">{t.emailLabel}</Label>
               <Input
                 id="email"
                 type="email"
@@ -63,7 +65,7 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+              <Label htmlFor="password" className="text-gray-700 font-medium">{t.passwordLabel}</Label>
               <Input
                 id="password"
                 type="password"
@@ -87,15 +89,15 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full h-11 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
             >
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? t.signingIn : t.signIn}
             </Button>
           </form>
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-5">
-          Don't have an account?{' '}
+          {t.dontHaveAccount}{' '}
           <Link to="/sign-up" className="text-amber-600 hover:text-amber-700 font-medium">
-            Sign up
+            {t.signUpLink}
           </Link>
         </p>
       </div>

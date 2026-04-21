@@ -4,6 +4,8 @@ import { Song } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useUILanguage } from '@/context/UILanguageContext';
+import type { T } from '@/context/UILanguageContext';
 
 interface Props {
   songs: Song[];
@@ -13,21 +15,22 @@ interface Props {
   onNewSong: () => void;
 }
 
-function timeAgo(iso: string | undefined): string {
+function timeAgo(iso: string | undefined, t: T): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
   const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t.justNow;
+  if (mins < 60) return `${mins}${t.mAgo}`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  if (hrs < 24) return `${hrs}${t.hAgo}`;
+  return `${Math.floor(hrs / 24)}${t.dAgo}`;
 }
 
 export default function HomePage({ songs, loading, displayName, onSelectSong, onNewSong }: Props) {
   const navigate = useNavigate();
+  const { t } = useUILanguage();
   const recent = songs.slice(0, 4);
 
   return (
@@ -35,7 +38,7 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
       {/* Hero greeting */}
       <div className="relative overflow-hidden rounded-2xl bg-amber-400 p-8">
         <div className="relative z-10">
-          <p className="text-amber-900 text-sm font-semibold uppercase tracking-wider mb-2">Welcome back</p>
+          <p className="text-amber-900 text-sm font-semibold uppercase tracking-wider mb-2">{t.welcomeBack}</p>
 
           {loading || !displayName ? (
             <div className="space-y-2 mb-6">
@@ -48,7 +51,7 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
                 {displayName} 👋
               </h1>
               <p className="text-amber-800 mb-6 max-w-sm">
-                You have {songs.length} {songs.length === 1 ? 'song' : 'songs'} in your collection. Keep writing!
+                {songs.length} {songs.length === 1 ? t.song : t.songs} {t.inYourCollection}. {t.keepWriting}
               </p>
             </>
           )}
@@ -59,7 +62,7 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
               className="bg-gray-900 hover:bg-gray-800 text-white font-bold border-0 gap-2"
             >
               <Plus className="w-4 h-4" />
-              New Song
+              {t.newSong}
             </Button>
             <Button
               onClick={() => navigate('/library')}
@@ -67,7 +70,7 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
               className="border-amber-600 text-amber-900 hover:bg-amber-500 gap-2"
             >
               <BookOpen className="w-4 h-4" />
-              My Library
+              {t.myLibrary}
             </Button>
           </div>
         </div>
@@ -92,8 +95,8 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
               </Card>
             ))
           : [
-              { icon: Music, label: 'Total Songs', value: songs.length },
-              { icon: BookOpen, label: 'With Chords', value: songs.filter(s => s.sections.some(sec => sec.lines.some(l => l.tokens.some(t => t.chords?.length)))).length },
+              { icon: Music, label: t.totalSongs, value: songs.length },
+              { icon: BookOpen, label: t.withChords, value: songs.filter(s => s.sections.some(sec => sec.lines.some(l => l.tokens.some(tk => tk.chords?.length)))).length },
             ].map(({ icon: Icon, label, value }) => (
               <Card
                 key={label}
@@ -133,14 +136,14 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
       {!loading && recent.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-foreground">Recently Edited</h2>
+            <h2 className="text-base font-semibold text-foreground">{t.recentlyEdited}</h2>
             <Button
               variant="link"
               size="sm"
               onClick={() => navigate('/library')}
               className="text-xs text-amber-600 hover:text-amber-700 p-0 h-auto font-medium"
             >
-              View all →
+              {t.viewAll}
             </Button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -165,7 +168,7 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">{timeAgo(song.updatedAt)}</p>
+                <p className="text-xs text-muted-foreground mt-2">{timeAgo(song.updatedAt, t)}</p>
               </button>
             ))}
           </div>
@@ -179,10 +182,10 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
             <Music className="w-10 h-10 text-amber-400" />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground text-lg mb-1">No songs yet</h3>
-            <p className="text-muted-foreground text-sm mb-4">Start your chord notebook by creating your first song</p>
+            <h3 className="font-semibold text-foreground text-lg mb-1">{t.noSongsTitle}</h3>
+            <p className="text-muted-foreground text-sm mb-4">{t.startYourNotebook}</p>
             <Button onClick={onNewSong} className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0">
-              <Plus className="w-4 h-4 mr-2" /> Create first song
+              <Plus className="w-4 h-4 mr-2" /> {t.createFirstSong}
             </Button>
           </div>
         </div>

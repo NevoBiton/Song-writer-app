@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Music2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useUILanguage } from '../../context/UILanguageContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -14,6 +15,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
+  const { t } = useUILanguage();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,14 +46,14 @@ export default function RegisterPage() {
             <Music2 className="w-7 h-7 text-gray-900" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">WordChord</h1>
-          <p className="text-sm text-gray-500 mt-1">Create your account</p>
+          <p className="text-sm text-gray-500 mt-1">{t.createYourAccount}</p>
         </div>
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
+              <Label htmlFor="email" className="text-gray-700 font-medium">{t.emailLabel}</Label>
               <Input
                 id="email"
                 type="email"
@@ -65,7 +67,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="username" className="text-gray-700 font-medium">Username</Label>
+              <Label htmlFor="username" className="text-gray-700 font-medium">{t.usernameLabel}</Label>
               <Input
                 id="username"
                 type="text"
@@ -79,7 +81,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
+              <Label htmlFor="password" className="text-gray-700 font-medium">{t.passwordLabel}</Label>
               <Input
                 id="password"
                 type="password"
@@ -93,7 +95,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="confirm" className="text-gray-700 font-medium">Confirm password</Label>
+              <Label htmlFor="confirm" className="text-gray-700 font-medium">{t.confirmPasswordLabel}</Label>
               <Input
                 id="confirm"
                 type="password"
@@ -117,15 +119,15 @@ export default function RegisterPage() {
               disabled={loading}
               className="w-full h-11 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
             >
-              {loading ? 'Creating account…' : 'Create Account'}
+              {loading ? t.creatingAccount : t.createAccountBtn}
             </Button>
           </form>
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-5">
-          Already have an account?{' '}
+          {t.alreadyHaveAccount}{' '}
           <Link to="/sign-in" className="text-amber-600 hover:text-amber-700 font-medium">
-            Sign in
+            {t.signInLink}
           </Link>
         </p>
       </div>

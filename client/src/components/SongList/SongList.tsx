@@ -3,6 +3,8 @@ import { Plus, Music, Search, Share2, Check, Trash2, RotateCcw, ChevronDown, Che
 import { toast } from 'sonner';
 import { Song } from '../../types';
 import { DeletedSong } from '@/hooks/useSongLibrary';
+import { useUILanguage } from '@/context/UILanguageContext';
+import type { T } from '@/context/UILanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -25,18 +27,18 @@ interface Props {
   isMobile?: boolean;
 }
 
-function timeAgo(iso: string | undefined): string {
+function timeAgo(iso: string | undefined, t: T): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
   const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t.justNow;
+  if (mins < 60) return `${mins}${t.mAgo}`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return `${hrs}${t.hAgo}`;
   const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
+  return `${days}${t.dAgo}`;
 }
 
 function daysUntilExpiry(iso: string): number {
@@ -86,6 +88,7 @@ export default function SongList({
   onRestoreSong,
   onPermanentDeleteSong,
 }: Props) {
+  const { t } = useUILanguage();
   const [query, setQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<{ songId: string; x: number; y: number } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -164,9 +167,9 @@ export default function SongList({
       {/* Page header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">My Song Library</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t.myLibrary}</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            {songs.length} {songs.length === 1 ? 'song' : 'songs'} in your collection
+            {songs.length} {songs.length === 1 ? t.song : t.songs} {t.inYourCollection}
           </p>
         </div>
         <Button
@@ -175,7 +178,7 @@ export default function SongList({
           className="gap-1.5 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
         >
           <Plus className="w-4 h-4" />
-          New Song
+          {t.newSong}
         </Button>
       </div>
 
@@ -186,7 +189,7 @@ export default function SongList({
           type="search"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="Search songs by title or artist..."
+          placeholder={t.searchPlaceholder}
           className="pl-9 focus-visible:ring-amber-400"
         />
       </div>
@@ -198,20 +201,20 @@ export default function SongList({
             <Music className="w-10 h-10 text-amber-400" />
           </div>
           <div className="text-center">
-            <h2 className="text-xl font-bold text-foreground mb-1">No songs yet</h2>
-            <p className="text-muted-foreground text-sm mb-6">Create your first song to get started</p>
+            <h2 className="text-xl font-bold text-foreground mb-1">{t.noSongsTitle}</h2>
+            <p className="text-muted-foreground text-sm mb-6">{t.noSongsDesc}</p>
             <Button
               onClick={() => onNewSong()}
               className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Create your first song
+              {t.createFirstSong}
             </Button>
           </div>
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
-          No songs match &ldquo;{query}&rdquo;
+          {t.noSongsMatch} &ldquo;{query}&rdquo;
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -261,15 +264,15 @@ export default function SongList({
                 )}
 
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                  <span className="text-muted-foreground text-xs">{timeAgo(song.updatedAt)}</span>
+                  <span className="text-muted-foreground text-xs">{timeAgo(song.updatedAt, t)}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-xs">
-                      {song.sections.length} section{song.sections.length !== 1 ? 's' : ''}
+                      {song.sections.length} {song.sections.length === 1 ? t.section : t.sections}
                     </span>
                     <button
                       onClick={e => { e.stopPropagation(); setConfirmDeleteId(song.id); }}
                       className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded-lg hover:bg-destructive/10"
-                      title="Delete song"
+                      title={t.deleteSongTitle}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -289,7 +292,7 @@ export default function SongList({
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <Trash2 className="w-4 h-4" />
-            Recently Deleted ({deletedSongs.length})
+            {t.recentlyDeleted} ({deletedSongs.length})
             {showDeleted ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
 
@@ -309,7 +312,7 @@ export default function SongList({
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground mb-3">
-                    Deleted {timeAgo(song.deletedAt)} · expires in {daysUntilExpiry(song.deletedAt)}d
+                    {t.deleted} {timeAgo(song.deletedAt, t)} · {t.expiresIn} {daysUntilExpiry(song.deletedAt)}d
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -318,7 +321,7 @@ export default function SongList({
                       onClick={() => onRestoreSong(song.id)}
                       className="flex-1 gap-1.5 text-xs h-8"
                     >
-                      <RotateCcw className="w-3 h-3" /> Restore
+                      <RotateCcw className="w-3 h-3" /> {t.restore}
                     </Button>
                     <Button
                       size="sm"
@@ -326,7 +329,7 @@ export default function SongList({
                       onClick={() => setConfirmPermDeleteId(song.id)}
                       className="gap-1.5 text-xs h-8 text-destructive hover:bg-destructive/10 border-destructive/30"
                     >
-                      <Trash2 className="w-3 h-3" /> Delete forever
+                      <Trash2 className="w-3 h-3" /> {t.deleteForever}
                     </Button>
                   </div>
                 </div>
@@ -351,7 +354,7 @@ export default function SongList({
             }}
             className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent"
           >
-            ✎ Edit
+            ✎ {t.edit}
           </button>
           <button
             onClick={async () => {
@@ -360,7 +363,7 @@ export default function SongList({
             }}
             className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent"
           >
-            ⎘ Duplicate
+            ⎘ {t.duplicate}
           </button>
           <button
             onClick={() => handleShare(contextMenu.songId)}
@@ -369,7 +372,7 @@ export default function SongList({
             {copiedId === contextMenu.songId
               ? <Check className="w-3.5 h-3.5 text-green-500" />
               : <Share2 className="w-3.5 h-3.5" />}
-            Share
+            {t.share}
           </button>
         </div>
       )}
@@ -378,13 +381,13 @@ export default function SongList({
       <Dialog open={!!confirmDeleteId} onOpenChange={() => setConfirmDeleteId(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Delete song?</DialogTitle>
+            <DialogTitle>{t.deleteSongTitle}</DialogTitle>
             <DialogDescription>
-              "{songToDelete?.title}" will be moved to Recently Deleted. You can restore it within 30 days.
+              &ldquo;{songToDelete?.title}&rdquo; {t.moveToDeleted}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>{t.cancel}</Button>
             <Button
               variant="destructive"
               onClick={async () => {
@@ -395,7 +398,7 @@ export default function SongList({
                 }
               }}
             >
-              Delete
+              {t.delete}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -405,13 +408,13 @@ export default function SongList({
       <Dialog open={!!confirmPermDeleteId} onOpenChange={() => setConfirmPermDeleteId(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Delete forever?</DialogTitle>
+            <DialogTitle>{t.deleteForeverTitle}</DialogTitle>
             <DialogDescription>
-              "{songToPermDelete?.title}" will be permanently deleted. This cannot be undone.
+              &ldquo;{songToPermDelete?.title}&rdquo; {t.permanentlyDeleted}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmPermDeleteId(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setConfirmPermDeleteId(null)}>{t.cancel}</Button>
             <Button
               variant="destructive"
               onClick={async () => {
@@ -422,7 +425,7 @@ export default function SongList({
                 }
               }}
             >
-              Delete forever
+              {t.deleteForever}
             </Button>
           </DialogFooter>
         </DialogContent>

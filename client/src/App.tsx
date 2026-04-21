@@ -16,7 +16,7 @@ import RegisterPage from './components/auth/RegisterPage';
 import HomePage from './components/Home/HomePage';
 import { AppLayout } from './components/Layout/AppLayout';
 import { ThemeProvider } from './context/ThemeContext';
-import { UILanguageProvider } from './context/UILanguageContext';
+import { UILanguageProvider, useUILanguage } from './context/UILanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from './components/ui/sonner';
 
@@ -43,6 +43,7 @@ function AuthenticatedApp() {
   const navigationType = useNavigationType();
   const location = useLocation();
 
+  const { t } = useUILanguage();
   const displayName = user?.username || user?.email?.split('@')[0] || '';
 
   // Clear active song when user navigates with browser back/forward
@@ -167,30 +168,30 @@ function AuthenticatedApp() {
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>New Song</DialogTitle>
+            <DialogTitle>{t.newSong}</DialogTitle>
           </DialogHeader>
           <div className="py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="song-title">Song title</Label>
+              <Label htmlFor="song-title">{t.songTitle}</Label>
               <Input
                 id="song-title"
                 autoFocus
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleCreateSong()}
-                placeholder="Song title"
+                placeholder={t.songTitle}
                 className="focus-visible:ring-amber-400"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>{t.cancel}</Button>
             <Button
               onClick={handleCreateSong}
               disabled={!newTitle.trim() || creating}
               className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
             >
-              {creating ? 'Creating...' : 'Create'}
+              {creating ? t.creating : t.create}
             </Button>
           </DialogFooter>
         </DialogContent>
