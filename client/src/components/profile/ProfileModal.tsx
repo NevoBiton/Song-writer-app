@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Camera, RefreshCw, Lock, User } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Camera, RefreshCw, Lock, User, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
+import { useUILanguage } from '@/context/UILanguageContext';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,33 +29,61 @@ function dicebearUrl(style: string, seed: string) {
   return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=fbbf24`;
 }
 
-function getAvatarUrl(avatar: string | null | undefined, username: string): string {
+export function getAvatarUrl(avatar: string | null | undefined, username: string): string {
   if (!avatar) return dicebearUrl('adventurer', username);
-  if (avatar.startsWith('http')) return avatar;
+  if (avatar.startsWith('http') || avatar.startsWith('data:')) return avatar;
   // format: "style:seed"
   const [style, ...rest] = avatar.split(':');
   const seed = rest.join(':') || username;
   return dicebearUrl(style, seed);
 }
 
+function resizeImage(file: File, maxSize = 256): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      // Center-crop to square then resize
+      const size = Math.min(img.width, img.height);
+      const sx = (img.width - size) / 2;
+      const sy = (img.height - size) / 2;
+      canvas.width = maxSize;
+      canvas.height = maxSize;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, maxSize, maxSize);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image')); };
+    img.src = url;
+  });
+}
+
 type Tab = 'profile' | 'avatar' | 'password';
+type AvatarMode = 'dicebear' | 'upload' | 'url';
 
 export default function ProfileModal({ open, onClose }: Props) {
   const { user, updateUser } = useAuth();
+  const { t } = useUILanguage();
   const [tab, setTab] = useState<Tab>('profile');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Profile tab
   const [username, setUsername] = useState(user?.username || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [profileError, setProfileError] = useState('');
-  const [profileSuccess, setProfileSuccess] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Avatar tab
-  const [avatarMode, setAvatarMode] = useState<'dicebear' | 'url'>('dicebear');
+  const [avatarMode, setAvatarMode] = useState<AvatarMode>(() => {
+    const av = user?.avatar;
+    if (!av) return 'dicebear';
+    if (av.startsWith('http') || av.startsWith('data:')) return av.startsWith('data:') ? 'upload' : 'url';
+    return 'dicebear';
+  });
   const [selectedStyle, setSelectedStyle] = useState<string>(() => {
     const av = user?.avatar;
-    if (!av || av.startsWith('http')) return 'adventurer';
+    if (!av || av.startsWith('http') || av.startsWith('data:')) return 'adventurer';
     return av.split(':')[0] || 'adventurer';
   });
   const [avatarSeed, setAvatarSeed] = useState(user?.username || '');
@@ -61,24 +91,44 @@ export default function ProfileModal({ open, onClose }: Props) {
     const av = user?.avatar;
     return av?.startsWith('http') ? av : '';
   });
+  const [uploadPreview, setUploadPreview] = useState<string>(() => {
+    const av = user?.avatar;
+    return av?.startsWith('data:') ? av : '';
+  });
+  const [uploadError, setUploadError] = useState('');
   const [savingAvatar, setSavingAvatar] = useState(false);
-  const [avatarError, setAvatarError] = useState('');
 
   // Password tab
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
-  const [pwError, setPwError] = useState('');
-  const [pwSuccess, setPwSuccess] = useState('');
   const [savingPw, setSavingPw] = useState(false);
 
-  const previewAvatarUrl = avatarMode === 'url' && customUrl
-    ? customUrl
+  const previewAvatarUrl =
+    avatarMode === 'upload' ? (uploadPreview || getAvatarUrl(user?.avatar, user?.username || 'user'))
+    : avatarMode === 'url' ? (customUrl || getAvatarUrl(user?.avatar, user?.username || 'user'))
     : dicebearUrl(selectedStyle, avatarSeed || user?.username || 'user');
 
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError('');
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('File too large — max 5 MB');
+      return;
+    }
+    try {
+      const dataUrl = await resizeImage(file);
+      setUploadPreview(dataUrl);
+    } catch {
+      setUploadError('Could not read image');
+    }
+    // reset so the same file can be re-selected
+    e.target.value = '';
+  }
+
   async function saveProfile() {
-    setProfileError(''); setProfileSuccess('');
-    if (!username.trim() || !email.trim()) { setProfileError('Username and email are required'); return; }
+    if (!username.trim() || !email.trim()) { toast.error(t.toastUsernameEmailRequired); return; }
     setSavingProfile(true);
     try {
       const { data } = await api.put<{ id: string; email: string; username: string; avatar?: string | null }>('/user/profile', {
@@ -87,20 +137,27 @@ export default function ProfileModal({ open, onClose }: Props) {
         avatar: user?.avatar,
       });
       updateUser(data);
-      setProfileSuccess('Profile updated!');
+      toast.success(t.profileUpdated);
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'response' in err
         ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
         : undefined;
-      setProfileError(msg || 'Failed to update profile');
+      toast.error(msg || t.profileUpdateFailed);
     } finally {
       setSavingProfile(false);
     }
   }
 
   async function saveAvatar() {
-    setAvatarError('');
-    const avatarValue = avatarMode === 'url' ? customUrl : `${selectedStyle}:${avatarSeed || user?.username}`;
+    let avatarValue: string;
+    if (avatarMode === 'upload') {
+      if (!uploadPreview) { toast.error(t.toastSelectPhotoFirst); return; }
+      avatarValue = uploadPreview;
+    } else if (avatarMode === 'url') {
+      avatarValue = customUrl;
+    } else {
+      avatarValue = `${selectedStyle}:${avatarSeed || user?.username}`;
+    }
     setSavingAvatar(true);
     try {
       const { data } = await api.put<{ id: string; email: string; username: string; avatar?: string | null }>('/user/profile', {
@@ -109,27 +166,27 @@ export default function ProfileModal({ open, onClose }: Props) {
         avatar: avatarValue,
       });
       updateUser(data);
+      toast.success(t.profileUpdated);
     } catch {
-      setAvatarError('Failed to save avatar');
+      toast.error(t.avatarSaveFailed);
     } finally {
       setSavingAvatar(false);
     }
   }
 
   async function savePassword() {
-    setPwError(''); setPwSuccess('');
-    if (newPw !== confirmPw) { setPwError('Passwords do not match'); return; }
-    if (newPw.length < 6) { setPwError('Password must be at least 6 characters'); return; }
+    if (newPw !== confirmPw) { toast.error(t.toastPasswordsDoNotMatch); return; }
+    if (newPw.length < 6) { toast.error(t.toastPasswordMinLength); return; }
     setSavingPw(true);
     try {
       await api.put('/user/password', { currentPassword: currentPw, newPassword: newPw });
-      setPwSuccess('Password updated!');
+      toast.success(t.passwordUpdated);
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
     } catch (err: unknown) {
       const msg = err && typeof err === 'object' && 'response' in err
         ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
         : undefined;
-      setPwError(msg || 'Failed to update password');
+      toast.error(msg || t.passwordUpdateFailed);
     } finally {
       setSavingPw(false);
     }
@@ -141,7 +198,7 @@ export default function ProfileModal({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>My Profile</DialogTitle>
+          <DialogTitle>{t.profile}</DialogTitle>
         </DialogHeader>
 
         {/* Avatar preview at top */}
@@ -168,9 +225,9 @@ export default function ProfileModal({ open, onClose }: Props) {
         {/* Tabs */}
         <div className="flex gap-1 p-1 bg-muted rounded-lg">
           {([
-            { id: 'profile', icon: User, label: 'Profile' },
-            { id: 'avatar', icon: Camera, label: 'Avatar' },
-            { id: 'password', icon: Lock, label: 'Password' },
+            { id: 'profile', icon: User, label: t.profileTab },
+            { id: 'avatar', icon: Camera, label: t.avatarTab },
+            { id: 'password', icon: Lock, label: t.passwordTab },
           ] as const).map(({ id, icon: Icon, label }) => (
             <button
               key={id}
@@ -191,21 +248,19 @@ export default function ProfileModal({ open, onClose }: Props) {
         {tab === 'profile' && (
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Username</Label>
+              <Label>{t.usernameLabel}</Label>
               <Input value={username} onChange={e => setUsername(e.target.value)} className="focus-visible:ring-amber-400" />
             </div>
             <div className="space-y-1.5">
-              <Label>Email</Label>
+              <Label>{t.emailLabel}</Label>
               <Input type="email" value={email} onChange={e => setEmail(e.target.value)} className="focus-visible:ring-amber-400" />
             </div>
-            {profileError && <p className="text-destructive text-sm">{profileError}</p>}
-            {profileSuccess && <p className="text-green-600 text-sm">{profileSuccess}</p>}
             <Button
               onClick={saveProfile}
               disabled={savingProfile}
               className="w-full bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
             >
-              {savingProfile ? 'Saving...' : 'Save Changes'}
+              {savingProfile ? t.saving : t.saveChanges}
             </Button>
           </div>
         )}
@@ -215,27 +270,28 @@ export default function ProfileModal({ open, onClose }: Props) {
           <div className="space-y-4">
             {/* Mode toggle */}
             <div className="flex gap-2">
-              <button
-                onClick={() => setAvatarMode('dicebear')}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  avatarMode === 'dicebear' ? 'bg-amber-400 border-amber-400 text-gray-900' : 'border-border text-muted-foreground hover:border-amber-400'
-                }`}
-              >
-                Animated Avatar
-              </button>
-              <button
-                onClick={() => setAvatarMode('url')}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  avatarMode === 'url' ? 'bg-amber-400 border-amber-400 text-gray-900' : 'border-border text-muted-foreground hover:border-amber-400'
-                }`}
-              >
-                Image URL
-              </button>
+              {([
+                { mode: 'dicebear', label: t.animatedAvatar },
+                { mode: 'upload',   label: t.uploadPhoto },
+                { mode: 'url',      label: t.imageUrl },
+              ] as const).map(({ mode, label }) => (
+                <button
+                  key={mode}
+                  onClick={() => setAvatarMode(mode)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    avatarMode === mode
+                      ? 'bg-amber-400 border-amber-400 text-gray-900'
+                      : 'border-border text-muted-foreground hover:border-amber-400'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
+            {/* Dicebear */}
             {avatarMode === 'dicebear' && (
               <>
-                {/* Style grid */}
                 <div className="grid grid-cols-3 gap-2">
                   {AVATAR_STYLES.map(({ id, label }) => (
                     <button
@@ -254,14 +310,13 @@ export default function ProfileModal({ open, onClose }: Props) {
                     </button>
                   ))}
                 </div>
-                {/* Seed input */}
                 <div className="flex gap-2 items-end">
                   <div className="flex-1 space-y-1.5">
-                    <Label>Avatar seed (any text)</Label>
+                    <Label>{t.avatarSeedLabel}</Label>
                     <Input
                       value={avatarSeed}
                       onChange={e => setAvatarSeed(e.target.value)}
-                      placeholder="e.g. your name or anything..."
+                      placeholder={t.avatarSeedPlaceholder}
                       className="focus-visible:ring-amber-400"
                     />
                   </div>
@@ -277,32 +332,73 @@ export default function ProfileModal({ open, onClose }: Props) {
               </>
             )}
 
+            {/* Upload from device */}
+            {avatarMode === 'upload' && (
+              <div className="space-y-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                {uploadPreview ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <img
+                      src={uploadPreview}
+                      alt="uploaded"
+                      className="w-24 h-24 rounded-full border-2 border-amber-400 object-cover"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="gap-2"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      {t.changePhoto}
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full border-2 border-dashed border-border hover:border-amber-400 rounded-xl py-8 flex flex-col items-center gap-2 transition-colors"
+                  >
+                    <Upload className="w-8 h-8 text-muted-foreground" />
+                    <span className="text-sm font-medium text-foreground">{t.clickToUpload}</span>
+                    <span className="text-xs text-muted-foreground">{t.uploadHint}</span>
+                  </button>
+                )}
+                {uploadError && <p className="text-destructive text-sm">{uploadError}</p>}
+              </div>
+            )}
+
+            {/* Custom URL */}
             {avatarMode === 'url' && (
               <div className="space-y-1.5">
-                <Label>Image URL</Label>
+                <Label>{t.imageUrl}</Label>
                 <Input
                   value={customUrl}
                   onChange={e => setCustomUrl(e.target.value)}
-                  placeholder="https://example.com/your-photo.jpg"
+                  placeholder={t.imageUrlPlaceholder}
                   className="focus-visible:ring-amber-400"
                 />
-                <p className="text-xs text-muted-foreground">Paste a direct link to a photo</p>
+                <p className="text-xs text-muted-foreground">{t.imageUrlHint}</p>
               </div>
             )}
 
             {/* Preview */}
             <div className="flex items-center gap-3 p-3 rounded-xl bg-muted">
               <img src={previewAvatarUrl} alt="preview" className="w-14 h-14 rounded-full border-2 border-amber-400 object-cover bg-amber-50" />
-              <span className="text-sm text-muted-foreground">Preview</span>
+              <span className="text-sm text-muted-foreground">{t.previewLabel}</span>
             </div>
 
-            {avatarError && <p className="text-destructive text-sm">{avatarError}</p>}
             <Button
               onClick={saveAvatar}
               disabled={savingAvatar}
               className="w-full bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
             >
-              {savingAvatar ? 'Saving...' : 'Save Avatar'}
+              {savingAvatar ? t.saving : t.saveAvatar}
             </Button>
           </div>
         )}
@@ -311,25 +407,23 @@ export default function ProfileModal({ open, onClose }: Props) {
         {tab === 'password' && (
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label>Current Password</Label>
+              <Label>{t.currentPassword}</Label>
               <Input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} className="focus-visible:ring-amber-400" />
             </div>
             <div className="space-y-1.5">
-              <Label>New Password</Label>
-              <Input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Min. 6 characters" className="focus-visible:ring-amber-400" />
+              <Label>{t.newPasswordLabel}</Label>
+              <Input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder={t.minCharsHint} className="focus-visible:ring-amber-400" />
             </div>
             <div className="space-y-1.5">
-              <Label>Confirm New Password</Label>
+              <Label>{t.confirmPasswordLabel}</Label>
               <Input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} className="focus-visible:ring-amber-400" />
             </div>
-            {pwError && <p className="text-destructive text-sm">{pwError}</p>}
-            {pwSuccess && <p className="text-green-600 text-sm">{pwSuccess}</p>}
             <Button
               onClick={savePassword}
               disabled={savingPw}
               className="w-full bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
             >
-              {savingPw ? 'Updating...' : 'Update Password'}
+              {savingPw ? t.updating : t.updatePassword}
             </Button>
           </div>
         )}

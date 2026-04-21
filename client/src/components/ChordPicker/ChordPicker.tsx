@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ArrowLeft } from 'lucide-react';
-import { searchChords, RECENTLY_USED_KEY, FAVORITES_KEY } from '../../data/chords';
+import { searchChords, FAVORITES_KEY } from '../../data/chords';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUILanguage } from '@/context/UILanguageContext';
@@ -14,6 +14,8 @@ interface Props {
   onRemoveChord: (chord: string) => void;
   currentChords: string[];
   isMobile: boolean;
+  recentlyUsed: string[];
+  onRecentChordsChange: (chords: string[]) => void;
 }
 
 function loadList(key: string): string[] {
@@ -36,11 +38,10 @@ function getLevel2Chords(root: string): string[] {
   ];
 }
 
-export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, currentChords, isMobile }: Props) {
-  const { t } = useUILanguage();
+export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, currentChords, isMobile, recentlyUsed, onRecentChordsChange }: Props) {
+  const { t, uiLang } = useUILanguage();
   const [query, setQuery] = useState('');
   const [rootFilter, setRootFilter] = useState('');
-  const [recentlyUsed, setRecentlyUsed] = useState<string[]>(() => loadList(RECENTLY_USED_KEY));
   const [favorites, setFavorites] = useState<string[]>(() => loadList(FAVORITES_KEY));
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -59,8 +60,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
   function handleSelect(chord: string) {
     if (isAtMax) return;
     const updated = [chord, ...recentlyUsed.filter(c => c !== chord)].slice(0, 10);
-    setRecentlyUsed(updated);
-    saveList(RECENTLY_USED_KEY, updated);
+    onRecentChordsChange(updated);
     onSelect(chord);
     onClose();
   }
@@ -74,6 +74,11 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
       saveList(FAVORITES_KEY, next);
       return next;
     });
+  }
+
+  function removeRecentChord(chord: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    onRecentChordsChange(recentlyUsed.filter(c => c !== chord));
   }
 
   useEffect(() => {
@@ -193,7 +198,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                     {!alreadyAdded && (
                       <button
                         onClick={e => toggleFavorite(chord, e)}
-                        className="absolute top-1.5 right-1.5 text-sm opacity-40 hover:opacity-100 transition-opacity"
+                        className="absolute top-1.5 right-1.5 text-xl opacity-40 hover:opacity-100 transition-opacity"
                         aria-label={isFav ? 'Unfavorite' : 'Favorite'}
                       >
                         {isFav ? '★' : '☆'}
@@ -235,7 +240,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                     {!alreadyAdded && (
                       <button
                         onClick={e => toggleFavorite(chord, e)}
-                        className="absolute top-0.5 right-0.5 text-xs opacity-40 hover:opacity-100 transition-opacity"
+                        className="absolute top-0.5 right-0.5 text-base opacity-40 hover:opacity-100 transition-opacity"
                         aria-label={favorites.includes(chord) ? 'Unfavorite' : 'Favorite'}
                       >
                         {favorites.includes(chord) ? '★' : '☆'}
@@ -259,14 +264,22 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                 <p className="text-muted-foreground text-xs uppercase tracking-wide mb-2">{t.recentChords}</p>
                 <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(recentlyUsed.length, 5)}, 1fr)` }}>
                   {recentlyUsed.map(chord => (
-                    <button
-                      key={chord}
-                      onClick={() => handleSelect(chord)}
-                      disabled={isAtMax || currentChords.includes(chord)}
-                      className="flex items-center justify-center py-2.5 text-base md:text-lg font-mono font-bold text-amber-600 rounded-xl border border-border hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {chord}
-                    </button>
+                    <div key={chord} className="relative">
+                      <button
+                        onClick={() => handleSelect(chord)}
+                        disabled={isAtMax || currentChords.includes(chord)}
+                        className="w-full flex items-center justify-center py-2.5 text-base md:text-lg font-mono font-bold text-amber-600 rounded-xl border border-border hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {chord}
+                      </button>
+                      <button
+                        onClick={e => removeRecentChord(chord, e)}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-muted border border-border text-muted-foreground hover:bg-red-100 hover:text-red-500 hover:border-red-300 flex items-center justify-center transition-colors"
+                        aria-label={`Remove ${chord} from recent`}
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -299,7 +312,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                   {['C', 'D', 'E', 'F'].map(root => (
                     <button
                       key={root}
-                      onClick={() => !isAtMax && setRootFilter(root)}
+                      onClick={e => { if (!isAtMax) { setRootFilter(root); (e.currentTarget as HTMLElement).blur(); } }}
                       disabled={isAtMax}
                       className="flex-1 flex items-center justify-center py-5 md:py-7 text-2xl md:text-3xl font-mono font-bold rounded-2xl border-2 border-border bg-card hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     >
@@ -311,7 +324,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                   {['G', 'A', 'B'].map(root => (
                     <button
                       key={root}
-                      onClick={() => !isAtMax && setRootFilter(root)}
+                      onClick={e => { if (!isAtMax) { setRootFilter(root); (e.currentTarget as HTMLElement).blur(); } }}
                       disabled={isAtMax}
                       className="flex-1 flex items-center justify-center py-5 md:py-7 text-2xl md:text-3xl font-mono font-bold rounded-2xl border-2 border-border bg-card hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     >
@@ -350,7 +363,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
   return (
     <>
       <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-      <div className="fixed right-4 top-20 bottom-4 w-96 lg:w-[480px] z-50 bg-card rounded-2xl shadow-2xl border border-border flex flex-col overflow-hidden">
+      <div className={`fixed top-20 bottom-4 w-96 lg:w-[480px] z-50 bg-card rounded-2xl shadow-2xl border border-border flex flex-col overflow-hidden ${uiLang === 'he' ? 'left-4' : 'right-4'}`}>
         {content}
       </div>
     </>

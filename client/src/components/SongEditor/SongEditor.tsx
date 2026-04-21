@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useUILanguage } from '@/context/UILanguageContext';
 import type { T } from '@/context/UILanguageContext';
+import api from '@/lib/api';
 
 interface Props {
   song: Song;
@@ -144,7 +145,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     reorderSections(oldIndex, newIndex);
   }
 
-  const { t } = useUILanguage();
+  const { t, uiLang } = useUILanguage();
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
@@ -156,6 +157,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   const [fontSize, setFontSize] = useState(18);
   const [shareCopied, setShareCopied] = useState(false);
   const [showHowTo, setShowHowTo] = useState(() => localStorage.getItem('howto-dismissed') !== '1');
+  const [recentChords, setRecentChords] = useState<string[]>(initialSong.recentChords || []);
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -233,6 +235,11 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     setPickerTarget(pt => pt ? { ...pt, currentChords: [...pt.currentChords, chord] } : null);
   }
 
+  function handleRecentChordsChange(chords: string[]) {
+    setRecentChords(chords);
+    api.patch(`/songs/${song.id}/recent-chords`, { chords }).catch(() => {});
+  }
+
   function handleChordRemove(chord: string) {
     if (!pickerTarget) return;
     removeChordFromToken(pickerTarget.sectionId, pickerTarget.lineId, pickerTarget.tokenId, chord);
@@ -265,7 +272,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   const allKeys = getAllKeys();
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col flex-1 min-h-0 bg-background">
 
       {/* ═══════════════════════════════════════════════════════════════
           EDIT MODE TOOLBAR
@@ -512,7 +519,10 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
       {/* ── Main content ─────────────────────────────────────────────── */}
       <div
         className="flex-1 overflow-y-auto"
-        style={{ fontSize: previewMode ? fontSize : undefined }}
+        style={previewMode ? {
+          '--song-font-size': `${fontSize}px`,
+          '--song-chord-font-size': `${Math.round(fontSize * 0.65)}px`,
+        } as React.CSSProperties : undefined}
       >
         <div className="min-h-full flex flex-col">
           <div className="flex-1 px-4 py-4 pb-20">
@@ -597,6 +607,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                               sectionId={section.id}
                               onTokenClick={handleTokenClick}
                               showChords={showChords}
+                              readOnly={previewMode}
                             />
                           ))}
                         </div>
@@ -616,7 +627,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
 
       {/* ── Fixed bottom action bar (edit mode only) ────────────────── */}
       {!previewMode && (
-        <div className="fixed bottom-5 left-4 z-30 flex items-center gap-2">
+        <div className={`fixed bottom-5 z-30 flex items-center gap-2 ${uiLang === 'he' ? 'right-4' : 'left-4'}`}>
 
           {/* Edit lyrics — pick a section */}
           <DropdownMenu>
@@ -708,6 +719,8 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
         onRemoveChord={handleChordRemove}
         currentChords={pickerTarget?.currentChords || []}
         isMobile={isMobile}
+        recentlyUsed={recentChords}
+        onRecentChordsChange={handleRecentChordsChange}
       />
     </div>
   );

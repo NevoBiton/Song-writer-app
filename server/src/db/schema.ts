@@ -21,6 +21,7 @@ export const songs = pgTable('songs', {
   capo: integer('capo').default(0),
   language: text('language').default('en'),
   sections: json('sections').default([]),
+  recentChords: json('recent_chords').default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

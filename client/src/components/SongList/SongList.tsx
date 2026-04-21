@@ -110,10 +110,10 @@ export default function SongList({
     try {
       await navigator.clipboard.writeText(text);
       setCopiedId(songId);
-      toast.success(`"${song.title}" copied to clipboard`);
+      toast.success(t.toastCopiedToClipboard.replace('{title}', song.title));
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      toast.error('Failed to copy to clipboard');
+      toast.error(t.toastCopyFailed);
     }
     setContextMenu(null);
   }

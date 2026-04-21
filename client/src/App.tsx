@@ -68,7 +68,7 @@ function AuthenticatedApp() {
     setCreating(true);
     try {
       const song = await createSong(newTitle.trim(), 'en');
-      toast.success(`"${song.title}" created`);
+      toast.success(t.toastSongCreated.replace('{title}', song.title));
       setShowCreateDialog(false);
       setActiveSong(song);
       navigate('/library');
@@ -80,23 +80,23 @@ function AuthenticatedApp() {
   async function handleDeleteSong(id: string) {
     const song = songs.find(s => s.id === id);
     await deleteSong(id);
-    toast.success(`"${song?.title ?? 'Song'}" moved to Recently Deleted`);
+    toast.success(t.toastSongMovedToDeleted.replace('{title}', song?.title ?? 'Song'));
   }
 
   async function handleRestoreSong(id: string) {
     const song = deletedSongs.find(s => s.id === id);
     await restoreSong(id);
-    toast.success(`"${song?.title ?? 'Song'}" restored`);
+    toast.success(t.toastSongRestored.replace('{title}', song?.title ?? 'Song'));
   }
 
   async function handlePermanentDeleteSong(id: string) {
     await permanentDeleteSong(id);
-    toast.success('Song permanently deleted');
+    toast.success(t.toastSongPermanentlyDeleted);
   }
 
   async function handleDuplicateSong(id: string) {
     const song = await duplicateSong(id);
-    toast.success(`Duplicated "${song?.title}"`);
+    toast.success(t.toastSongDuplicated.replace('{title}', song?.title ?? ''));
     return song;
   }
 
@@ -137,13 +137,14 @@ function AuthenticatedApp() {
           path="/library"
           element={
             activeSong ? (
-              // SongEditor is full-viewport — rendered outside the AppLayout padded container
-              <SongEditor
-                song={activeSong}
-                onSave={handleSaveSong}
-                onBack={handleBack}
-                isMobile={isMobile}
-              />
+              <AppLayout activeSong={activeSong} onBackToLibrary={() => setActiveSong(null)} raw>
+                <SongEditor
+                  song={activeSong}
+                  onSave={handleSaveSong}
+                  onBack={handleBack}
+                  isMobile={isMobile}
+                />
+              </AppLayout>
             ) : (
               layout(
                 <SongList

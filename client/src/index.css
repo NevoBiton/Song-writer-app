@@ -7,7 +7,7 @@
   src: url('/fonts/GveretLevin-Regular.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 .font-song {
@@ -80,7 +80,8 @@
 
 @layer utilities {
   .chord-text {
-    @apply text-amber-500 font-bold text-sm leading-none;
+    @apply text-amber-500 font-bold leading-none;
+    font-size: var(--song-chord-font-size, 0.875rem);
     direction: ltr;
     unicode-bidi: bidi-override;
     display: inline-block;
@@ -95,7 +96,8 @@
   }
 
   .token-word {
-    @apply px-0.5 rounded transition-colors duration-100 text-xl;
+    @apply px-0.5 rounded transition-colors duration-100;
+    font-size: var(--song-font-size, 1.25rem);
   }
 
   .word-token:hover .token-word {
@@ -104,6 +106,14 @@
 
   .dark .word-token:hover .token-word {
     @apply bg-amber-900/30;
+  }
+
+  .word-token.is-readonly {
+    cursor: default;
+  }
+
+  .word-token.is-readonly:hover .token-word {
+    background-color: transparent !important;
   }
 
   .bottom-sheet {
@@ -135,12 +145,12 @@
 /* ── iPad Pro and down — bigger touch-friendly fonts ── */
 @media (min-width: 768px) {
   .chord-text {
-    font-size: 1.1rem !important;
+    font-size: var(--song-chord-font-size, 1.1rem) !important;
     line-height: 1.2 !important;
   }
 
   .token-word {
-    font-size: 1.5rem !important;
+    font-size: var(--song-font-size, 1.5rem) !important;
   }
 
   .word-token {

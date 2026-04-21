@@ -36,6 +36,13 @@
       "when": 1775658393457,
       "tag": "0004_blushing_penance",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776774841559,
+      "tag": "0005_numerous_richard_fisk",
+      "breakpoints": true
     }
   ]
 }

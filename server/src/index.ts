@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import songRoutes from './routes/songs';
 import authRoutes from './routes/auth';
+import userRoutes from './routes/user';
 
 // ── Validate required environment variables ───────────────────────────────
 const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET', 'PORT'];
@@ -29,7 +30,7 @@ const allowedOrigin =
 app.use(cors({ origin: allowedOrigin, credentials: true }));
 
 // ── Body parser with size limit ───────────────────────────────────────────
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: '500kb' }));
 
 // ── Rate limiting ─────────────────────────────────────────────────────────
 const apiLimiter = rateLimit({
@@ -45,6 +46,7 @@ app.use('/api', apiLimiter);
 // ── Routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/songs', songRoutes);
+app.use('/api/user', userRoutes);
 
 // ── Health check ──────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
