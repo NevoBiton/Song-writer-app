@@ -6,6 +6,7 @@ export interface Song {
   capo?: number;
   language: 'he' | 'en' | 'mixed';
   sections: Section[];
+  recentChords?: string[];
   createdAt: string;
   updatedAt: string;
 }

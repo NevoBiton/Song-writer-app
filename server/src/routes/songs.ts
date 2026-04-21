@@ -87,6 +87,35 @@ router.put('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   }
 });
 
+// PATCH /api/songs/:id/recent-chords — update recently used chords for a song
+router.patch('/:id/recent-chords', async (req: AuthRequest, res: Response): Promise<void> => {
+  const id = req.params.id as string;
+  const { chords } = req.body;
+
+  if (!Array.isArray(chords)) {
+    res.status(400).json({ error: 'chords must be an array' });
+    return;
+  }
+
+  try {
+    const [song] = await db
+      .update(songs)
+      .set({ recentChords: chords })
+      .where(and(eq(songs.id, id), eq(songs.userId, req.user!.id)))
+      .returning({ id: songs.id });
+
+    if (!song) {
+      res.status(404).json({ error: 'Song not found' });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Update recent chords error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // DELETE /api/songs/:id  — soft delete (move to deleted_songs)
 router.delete('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   const id = req.params.id as string;

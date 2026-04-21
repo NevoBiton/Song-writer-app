@@ -1,0 +1,1 @@
+ALTER TABLE "songs" ADD COLUMN "recent_chords" json DEFAULT '[]'::json;

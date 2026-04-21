@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export type UILang = 'en' | 'he';
 
@@ -299,6 +299,10 @@ export function UILanguageProvider({ children }: { children: React.ReactNode }) 
   const [uiLang, setUiLang] = useState<UILang>(() => {
     return (localStorage.getItem('ui_lang') as UILang) || 'en';
   });
+
+  useEffect(() => {
+    document.documentElement.dir = uiLang === 'he' ? 'rtl' : 'ltr';
+  }, [uiLang]);
 
   function handleSetLang(lang: UILang) {
     setUiLang(lang);

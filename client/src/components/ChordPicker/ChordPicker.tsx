@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ArrowLeft } from 'lucide-react';
-import { searchChords, RECENTLY_USED_KEY, FAVORITES_KEY } from '../../data/chords';
+import { searchChords, FAVORITES_KEY } from '../../data/chords';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUILanguage } from '@/context/UILanguageContext';
@@ -14,6 +14,8 @@ interface Props {
   onRemoveChord: (chord: string) => void;
   currentChords: string[];
   isMobile: boolean;
+  recentlyUsed: string[];
+  onRecentChordsChange: (chords: string[]) => void;
 }
 
 function loadList(key: string): string[] {
@@ -36,11 +38,10 @@ function getLevel2Chords(root: string): string[] {
   ];
 }
 
-export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, currentChords, isMobile }: Props) {
-  const { t } = useUILanguage();
+export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, currentChords, isMobile, recentlyUsed, onRecentChordsChange }: Props) {
+  const { t, uiLang } = useUILanguage();
   const [query, setQuery] = useState('');
   const [rootFilter, setRootFilter] = useState('');
-  const [recentlyUsed, setRecentlyUsed] = useState<string[]>(() => loadList(RECENTLY_USED_KEY));
   const [favorites, setFavorites] = useState<string[]>(() => loadList(FAVORITES_KEY));
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -59,8 +60,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
   function handleSelect(chord: string) {
     if (isAtMax) return;
     const updated = [chord, ...recentlyUsed.filter(c => c !== chord)].slice(0, 10);
-    setRecentlyUsed(updated);
-    saveList(RECENTLY_USED_KEY, updated);
+    onRecentChordsChange(updated);
     onSelect(chord);
     onClose();
   }
@@ -78,9 +78,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
 
   function removeRecentChord(chord: string, e: React.MouseEvent) {
     e.stopPropagation();
-    const updated = recentlyUsed.filter(c => c !== chord);
-    setRecentlyUsed(updated);
-    saveList(RECENTLY_USED_KEY, updated);
+    onRecentChordsChange(recentlyUsed.filter(c => c !== chord));
   }
 
   useEffect(() => {
@@ -200,7 +198,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                     {!alreadyAdded && (
                       <button
                         onClick={e => toggleFavorite(chord, e)}
-                        className="absolute top-1.5 right-1.5 text-sm opacity-40 hover:opacity-100 transition-opacity"
+                        className="absolute top-1.5 right-1.5 text-xl opacity-40 hover:opacity-100 transition-opacity"
                         aria-label={isFav ? 'Unfavorite' : 'Favorite'}
                       >
                         {isFav ? '★' : '☆'}
@@ -242,7 +240,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                     {!alreadyAdded && (
                       <button
                         onClick={e => toggleFavorite(chord, e)}
-                        className="absolute top-0.5 right-0.5 text-xs opacity-40 hover:opacity-100 transition-opacity"
+                        className="absolute top-0.5 right-0.5 text-base opacity-40 hover:opacity-100 transition-opacity"
                         aria-label={favorites.includes(chord) ? 'Unfavorite' : 'Favorite'}
                       >
                         {favorites.includes(chord) ? '★' : '☆'}
@@ -365,7 +363,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
   return (
     <>
       <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-      <div className="fixed right-4 top-20 bottom-4 w-96 lg:w-[480px] z-50 bg-card rounded-2xl shadow-2xl border border-border flex flex-col overflow-hidden">
+      <div className={`fixed top-20 bottom-4 w-96 lg:w-[480px] z-50 bg-card rounded-2xl shadow-2xl border border-border flex flex-col overflow-hidden ${uiLang === 'he' ? 'left-4' : 'right-4'}`}>
         {content}
       </div>
     </>

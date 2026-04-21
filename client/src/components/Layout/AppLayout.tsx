@@ -50,10 +50,7 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
   }
 
   return (
-    <div
-      className="min-h-screen bg-background flex flex-col"
-      dir={uiLang === 'he' ? 'rtl' : 'ltr'}
-    >
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Navbar */}
       <header className="bg-card border-b border-border sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
