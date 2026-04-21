@@ -265,7 +265,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   const allKeys = getAllKeys();
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col flex-1 min-h-0 bg-background">
 
       {/* ═══════════════════════════════════════════════════════════════
           EDIT MODE TOOLBAR
@@ -597,6 +597,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                               sectionId={section.id}
                               onTokenClick={handleTokenClick}
                               showChords={showChords}
+                              readOnly={previewMode}
                             />
                           ))}
                         </div>

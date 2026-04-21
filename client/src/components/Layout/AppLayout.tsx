@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Music2, LogOut, Globe, Sun, Moon, HelpCircle,
-  BookOpen, ChevronRight,
+  BookOpen,
 } from 'lucide-react';
 import { Song } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
@@ -25,9 +25,10 @@ interface AppLayoutProps {
   children: React.ReactNode;
   activeSong?: Song | null;
   onBackToLibrary?: () => void;
+  raw?: boolean;
 }
 
-export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutProps) {
+export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLayoutProps) {
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { uiLang, setUiLang, t } = useUILanguage();
@@ -84,17 +85,6 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
                 <span className="hidden sm:inline">{t.myLibrary}</span>
               </button>
 
-              {activeSong && (
-                <>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                  <span
-                    className="px-3 py-1.5 rounded-lg text-sm font-semibold text-amber-700 dark:text-amber-400 bg-amber-400/15 max-w-[160px] truncate"
-                    title={activeSong.title}
-                  >
-                    {activeSong.title || 'Untitled'}
-                  </span>
-                </>
-              )}
             </nav>
 
             {/* Right side controls */}
@@ -189,9 +179,15 @@ export function AppLayout({ children, activeSong, onBackToLibrary }: AppLayoutPr
       <div className="h-0.5 bg-amber-400 w-full" />
 
       {/* Main content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {children}
-      </main>
+      {raw ? (
+        <div className="flex-1 flex flex-col min-h-0">
+          {children}
+        </div>
+      ) : (
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {children}
+        </main>
+      )}
 
       {/* Help dialog */}
       <Dialog open={showHelp} onOpenChange={setShowHelp}>

@@ -137,13 +137,14 @@ function AuthenticatedApp() {
           path="/library"
           element={
             activeSong ? (
-              // SongEditor is full-viewport — rendered outside the AppLayout padded container
-              <SongEditor
-                song={activeSong}
-                onSave={handleSaveSong}
-                onBack={handleBack}
-                isMobile={isMobile}
-              />
+              <AppLayout activeSong={activeSong} onBackToLibrary={() => setActiveSong(null)} raw>
+                <SongEditor
+                  song={activeSong}
+                  onSave={handleSaveSong}
+                  onBack={handleBack}
+                  isMobile={isMobile}
+                />
+              </AppLayout>
             ) : (
               layout(
                 <SongList

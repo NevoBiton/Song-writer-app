@@ -106,6 +106,14 @@
     @apply bg-amber-900/30;
   }
 
+  .word-token.is-readonly {
+    cursor: default;
+  }
+
+  .word-token.is-readonly:hover .token-word {
+    background-color: transparent !important;
+  }
+
   .bottom-sheet {
     @apply fixed inset-x-0 bottom-0 z-50 rounded-t-2xl shadow-2xl border-t;
     background-color: hsl(var(--card));

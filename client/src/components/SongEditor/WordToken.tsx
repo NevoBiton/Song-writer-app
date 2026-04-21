@@ -4,11 +4,12 @@ interface Props {
   chords?: string[];
   isSpace?: boolean;
   isRTL?: boolean;
+  readOnly?: boolean;
   onWordClick: () => void;
   onChordClick: () => void;
 }
 
-export default function WordToken({ text, chords, isSpace, isRTL, onWordClick, onChordClick }: Props) {
+export default function WordToken({ text, chords, isSpace, isRTL, readOnly, onWordClick, onChordClick }: Props) {
   if (isSpace) {
     return (
       <span className="inline-flex flex-col" aria-hidden="true">
@@ -23,14 +24,14 @@ export default function WordToken({ text, chords, isSpace, isRTL, onWordClick, o
 
   return (
     <span
-      className="word-token"
+      className={`word-token${readOnly ? ' is-readonly' : ''}`}
       style={{ marginRight: isRTL ? 0 : '2px', marginLeft: isRTL ? '2px' : 0 }}
     >
       {/* Chords above */}
       <span
         className="chord-text min-h-[1.2em] flex items-center gap-0.5"
-        onClick={hasChords ? onChordClick : onWordClick}
-        style={{ cursor: 'pointer' }}
+        onClick={!readOnly ? (hasChords ? onChordClick : onWordClick) : undefined}
+        style={{ cursor: readOnly ? 'default' : 'pointer' }}
         aria-label={hasChords ? `Chords: ${chords!.join(', ')}` : undefined}
       >
         {hasChords
@@ -45,10 +46,10 @@ export default function WordToken({ text, chords, isSpace, isRTL, onWordClick, o
       {/* Word below */}
       <span
         className="token-word text-foreground"
-        onClick={onWordClick}
-        role="button"
-        tabIndex={0}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onWordClick(); }}
+        onClick={!readOnly ? onWordClick : undefined}
+        role={!readOnly ? 'button' : undefined}
+        tabIndex={!readOnly ? 0 : undefined}
+        onKeyDown={!readOnly ? (e => { if (e.key === 'Enter' || e.key === ' ') onWordClick(); }) : undefined}
         aria-label={`Word: ${text}${hasChords ? `, chords: ${chords.join(', ')}` : ''}`}
       >
         {text}

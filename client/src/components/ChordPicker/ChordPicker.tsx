@@ -76,6 +76,13 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
     });
   }
 
+  function removeRecentChord(chord: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    const updated = recentlyUsed.filter(c => c !== chord);
+    setRecentlyUsed(updated);
+    saveList(RECENTLY_USED_KEY, updated);
+  }
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
@@ -259,14 +266,22 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                 <p className="text-muted-foreground text-xs uppercase tracking-wide mb-2">{t.recentChords}</p>
                 <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(recentlyUsed.length, 5)}, 1fr)` }}>
                   {recentlyUsed.map(chord => (
-                    <button
-                      key={chord}
-                      onClick={() => handleSelect(chord)}
-                      disabled={isAtMax || currentChords.includes(chord)}
-                      className="flex items-center justify-center py-2.5 text-base md:text-lg font-mono font-bold text-amber-600 rounded-xl border border-border hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {chord}
-                    </button>
+                    <div key={chord} className="relative">
+                      <button
+                        onClick={() => handleSelect(chord)}
+                        disabled={isAtMax || currentChords.includes(chord)}
+                        className="w-full flex items-center justify-center py-2.5 text-base md:text-lg font-mono font-bold text-amber-600 rounded-xl border border-border hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {chord}
+                      </button>
+                      <button
+                        onClick={e => removeRecentChord(chord, e)}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-muted border border-border text-muted-foreground hover:bg-red-100 hover:text-red-500 hover:border-red-300 flex items-center justify-center transition-colors"
+                        aria-label={`Remove ${chord} from recent`}
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -299,7 +314,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                   {['C', 'D', 'E', 'F'].map(root => (
                     <button
                       key={root}
-                      onClick={() => !isAtMax && setRootFilter(root)}
+                      onClick={e => { if (!isAtMax) { setRootFilter(root); (e.currentTarget as HTMLElement).blur(); } }}
                       disabled={isAtMax}
                       className="flex-1 flex items-center justify-center py-5 md:py-7 text-2xl md:text-3xl font-mono font-bold rounded-2xl border-2 border-border bg-card hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     >
@@ -311,7 +326,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                   {['G', 'A', 'B'].map(root => (
                     <button
                       key={root}
-                      onClick={() => !isAtMax && setRootFilter(root)}
+                      onClick={e => { if (!isAtMax) { setRootFilter(root); (e.currentTarget as HTMLElement).blur(); } }}
                       disabled={isAtMax}
                       className="flex-1 flex items-center justify-center py-5 md:py-7 text-2xl md:text-3xl font-mono font-bold rounded-2xl border-2 border-border bg-card hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     >
