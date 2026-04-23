@@ -23,11 +23,13 @@ function buildTransports(): winston.transport[] {
     }),
   ];
 
-  const lokiUrl = process.env.LOKI_URL;
-  if (lokiUrl) {
+  const lokiHost = process.env.LOKI_HOST;
+  const lokiBasicAuth = process.env.LOKI_BASIC_AUTH;
+  if (lokiHost && lokiBasicAuth) {
     transports.push(
       new LokiTransport({
-        host: lokiUrl,
+        host: lokiHost,
+        basicAuth: lokiBasicAuth,
         labels: {
           app: 'wordchord',
           env: process.env.NODE_ENV ?? 'production',

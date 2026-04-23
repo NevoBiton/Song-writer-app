@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
@@ -18,6 +18,7 @@ type UserPayload = { id: string; email: string; username: string; avatar: string
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly googleClient: OAuth2Client;
   private readonly resend: Resend;
 
@@ -45,6 +46,7 @@ export class AuthService {
         .insert(users)
         .values({ email: dto.email, username: dto.username, passwordHash })
         .returning();
+      this.logger.log(`User registered: ${user.email}`);
       return { token: this.signToken(user.id), user: this.toUserPayload(user) };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
@@ -55,12 +57,20 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const [user] = await this.db.db.select().from(users).where(eq(users.email, dto.email));
-    if (!user) throw new UnauthorizedException('Invalid email or password');
+    if (!user) {
+      this.logger.warn(`Failed login attempt — email not found: ${dto.email}`);
+      throw new UnauthorizedException('Invalid email or password');
+    }
     if (!user.passwordHash) {
+      this.logger.warn(`Failed login attempt — Google-only account: ${dto.email}`);
       throw new UnauthorizedException('This account uses Google sign-in. Use "Continue with Google" to log in.');
     }
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException('Invalid email or password');
+    if (!valid) {
+      this.logger.warn(`Failed login attempt — wrong password: ${dto.email}`);
+      throw new UnauthorizedException('Invalid email or password');
+    }
+    this.logger.log(`User logged in: ${user.email}`);
     return { token: this.signToken(user.id), user: this.toUserPayload(user) };
   }
 
