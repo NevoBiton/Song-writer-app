@@ -5,6 +5,7 @@ import { Label } from './components/ui/label';
 import { Input } from './components/ui/input';
 import { Button } from './components/ui/button';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { toast } from 'sonner';
 import { queryClient } from './lib/queryClient';
 import { Song } from './types';
@@ -251,6 +252,7 @@ export default function App() {
           </GoogleOAuthWrapper>
         </UILanguageProvider>
       </ThemeProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 }
