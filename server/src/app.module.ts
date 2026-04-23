@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { SongsModule } from './songs/songs.module';
 import { UsersModule } from './users/users.module';
+import { LoggerModule } from './logger/logger.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { UsersModule } from './users/users.module';
       }),
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    LoggerModule,
     DatabaseModule,
     AuthModule,
     SongsModule,
