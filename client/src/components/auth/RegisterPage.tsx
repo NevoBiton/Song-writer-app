@@ -8,6 +8,9 @@ import AuthLanguageToggle from './AuthLanguageToggle';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { PasswordInput } from '../ui/PasswordInput';
+
+const PW_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -19,11 +22,14 @@ export default function RegisterPage() {
   const { register, loginWithGoogle } = useAuth();
   const { t } = useUILanguage();
 
+  const passwordError = password ? (PW_RE.test(password) ? '' : t.toastPasswordMinLength) : '';
+  const confirmError = confirm ? (confirm === password ? '' : t.toastPasswordsDoNotMatch) : '';
+  const canSubmit = !loading && !!email && !!username && PW_RE.test(password) && password === confirm;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canSubmit) return;
     setError('');
-    if (password !== confirm) { setError(t.toastPasswordsDoNotMatch); return; }
-    if (password.length < 6) { setError(t.toastPasswordMinLength); return; }
     setLoading(true);
     try {
       await register(email, username, password);
@@ -96,9 +102,8 @@ export default function RegisterPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="password" className="text-gray-700 font-medium">{t.passwordLabel}</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -106,13 +111,13 @@ export default function RegisterPage() {
                 required
                 className="h-11 focus-visible:ring-amber-400 text-gray-900 placeholder:text-gray-400"
               />
+              {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="confirm" className="text-gray-700 font-medium">{t.confirmPasswordLabel}</Label>
-              <Input
+              <PasswordInput
                 id="confirm"
-                type="password"
                 autoComplete="new-password"
                 value={confirm}
                 onChange={e => setConfirm(e.target.value)}
@@ -120,6 +125,7 @@ export default function RegisterPage() {
                 required
                 className="h-11 focus-visible:ring-amber-400 text-gray-900 placeholder:text-gray-400"
               />
+              {confirmError && <p className="text-xs text-red-500">{confirmError}</p>}
             </div>
 
             {error && (
@@ -128,7 +134,7 @@ export default function RegisterPage() {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={!canSubmit}
               className="w-full h-11 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
             >
               {loading ? t.creatingAccount : t.createAccountBtn}

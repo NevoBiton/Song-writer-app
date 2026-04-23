@@ -3,7 +3,7 @@ import { pgTable, uuid, text, integer, json, timestamp } from 'drizzle-orm/pg-co
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
-  username: text('username').notNull().unique(),
+  username: text('username').notNull(),
   passwordHash: text('password_hash'),            // nullable — Google-only users have no password
   googleId: text('google_id').unique(),           // nullable — only set for Google OAuth users
   avatar: text('avatar'),

@@ -5,8 +5,8 @@ import { toast } from 'sonner';
 import { useUILanguage } from '../../context/UILanguageContext';
 import AuthLanguageToggle from './AuthLanguageToggle';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { PasswordInput } from '../ui/PasswordInput';
 import api from '../../lib/api';
 
 export default function ResetPasswordPage() {
@@ -35,6 +35,11 @@ export default function ResetPasswordPage() {
   const [expired, setExpired] = useState(false);
   const [checking, setChecking] = useState(true);
 
+  const PW_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+  const passwordError = password ? (PW_RE.test(password) ? '' : t.toastPasswordMinLength) : '';
+  const confirmError = confirm ? (confirm === password ? '' : t.toastPasswordsDoNotMatch) : '';
+  const canSubmit = !loading && PW_RE.test(password) && password === confirm;
+
   useEffect(() => {
     if (!token) { navigate('/sign-in', { replace: true }); return; }
     api.get(`/auth/reset-password/verify?token=${token}`)
@@ -45,15 +50,7 @@ export default function ResetPasswordPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    if (password !== confirm) {
-      toast.error(t.toastPasswordsDoNotMatch);
-      return;
-    }
-    if (password.length < 6) {
-      toast.error(t.toastPasswordMinLength);
-      return;
-    }
+    if (!canSubmit) return;
 
     setLoading(true);
     try {
@@ -103,9 +100,8 @@ export default function ResetPasswordPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="password" className="text-gray-700 font-medium">{t.newPassword}</Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   autoComplete="new-password"
                   autoFocus
                   value={password}
@@ -114,13 +110,13 @@ export default function ResetPasswordPage() {
                   required
                   className="h-11 focus-visible:ring-amber-400 text-gray-900 placeholder:text-gray-400"
                 />
+                {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="confirm" className="text-gray-700 font-medium">{t.confirmNewPassword}</Label>
-                <Input
+                <PasswordInput
                   id="confirm"
-                  type="password"
                   autoComplete="new-password"
                   value={confirm}
                   onChange={e => setConfirm(e.target.value)}
@@ -128,11 +124,12 @@ export default function ResetPasswordPage() {
                   required
                   className="h-11 focus-visible:ring-amber-400 text-gray-900 placeholder:text-gray-400"
                 />
+                {confirmError && <p className="text-xs text-red-500">{confirmError}</p>}
               </div>
 
               <Button
                 type="submit"
-                disabled={loading || !password || !confirm}
+                disabled={!canSubmit}
                 className="w-full h-11 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
               >
                 {loading ? t.resettingPassword : t.resetPassword}

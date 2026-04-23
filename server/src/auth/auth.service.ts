@@ -48,7 +48,7 @@ export class AuthService {
       return { token: this.signToken(user.id), user: this.toUserPayload(user) };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('unique')) throw new ConflictException('Email or username already taken');
+      if (msg.includes('unique')) throw new ConflictException('Email already taken');
       throw err;
     }
   }

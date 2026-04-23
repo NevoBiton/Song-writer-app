@@ -15,7 +15,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Only treat 401 as "session expired" when it comes from a protected endpoint.
+    // Auth endpoints (/auth/login, /auth/register, etc.) legitimately return 401
+    // for bad credentials — those should be handled by the caller, not auto-logout.
+    const url: string = error.config?.url || '';
+    if (error.response?.status === 401 && !url.includes('/auth/')) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('auth_user');
       sessionStorage.removeItem('auth_token');

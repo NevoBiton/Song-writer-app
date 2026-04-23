@@ -2,7 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  UnauthorizedException,
+  ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
@@ -41,7 +41,7 @@ export class UsersService {
       return { id: user.id, email: user.email, username: user.username, avatar: user.avatar };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('unique')) throw new ConflictException('Email or username already taken');
+      if (msg.includes('unique')) throw new ConflictException('Email already taken');
       throw err;
     }
   }
@@ -53,7 +53,7 @@ export class UsersService {
       throw new BadRequestException('This account uses Google sign-in and has no password to change.');
     }
     const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
-    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+    if (!valid) throw new ForbiddenException('Current password is incorrect');
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 10);
     await this.db.db.update(users).set({ passwordHash }).where(eq(users.id, userId));
