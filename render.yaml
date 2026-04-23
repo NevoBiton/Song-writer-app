@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: server
     buildCommand: npm ci && npm run build
-    startCommand: node_modules/.bin/drizzle-kit migrate && node dist/index.js
+    startCommand: node_modules/.bin/drizzle-kit migrate && node dist/main.js
     envVars:
       - key: NODE_ENV
         value: production

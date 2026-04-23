@@ -1,0 +1,34 @@
+---
+title: Introduction
+description: WordChord — a chord notebook for musicians
+---
+
+WordChord is a full-stack chord notebook app. Write lyrics, place chords above any word, transpose keys, and manage your song library — in Hebrew or English.
+
+## Features
+
+<CardGroup cols={2}>
+  <Card title="Song Editor" icon="music">
+    Place chords above any word in your lyrics with a single click
+  </Card>
+  <Card title="Transpose" icon="arrows-up-down">
+    Shift the key of an entire song up or down instantly
+  </Card>
+  <Card title="Trash & Restore" icon="trash-undo">
+    Soft-delete songs with a 30-day recovery window
+  </Card>
+  <Card title="Bilingual" icon="language">
+    Full English and Hebrew support with automatic RTL layout
+  </Card>
+</CardGroup>
+
+## Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui |
+| Backend | NestJS 10, TypeScript |
+| Database | PostgreSQL via Drizzle ORM |
+| Auth | bcryptjs + JWT + Google OAuth |
+| Hosting | Vercel (frontend) + Render (backend) + Neon (DB) |
+| Observability | Grafana Cloud (Loki) |

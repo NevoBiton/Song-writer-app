@@ -7,6 +7,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -176,17 +177,20 @@ export default function ProfileModal({ open, onClose }: Props) {
 
   async function savePassword() {
     if (newPw !== confirmPw) { toast.error(t.toastPasswordsDoNotMatch); return; }
-    if (newPw.length < 6) { toast.error(t.toastPasswordMinLength); return; }
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPw)) { toast.error(t.toastPasswordMinLength); return; }
     setSavingPw(true);
     try {
       await api.put('/user/password', { currentPassword: currentPw, newPassword: newPw });
       toast.success(t.passwordUpdated);
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
     } catch (err: unknown) {
-      const msg = err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
-        : undefined;
-      toast.error(msg || t.passwordUpdateFailed);
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 403) {
+        toast.error(t.toastCurrentPasswordIncorrect);
+      } else {
+        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        toast.error(msg || t.passwordUpdateFailed);
+      }
     } finally {
       setSavingPw(false);
     }
@@ -246,7 +250,7 @@ export default function ProfileModal({ open, onClose }: Props) {
 
         {/* Profile tab */}
         {tab === 'profile' && (
-          <div className="space-y-3">
+          <form className="space-y-3" onSubmit={e => { e.preventDefault(); saveProfile(); }}>
             <div className="space-y-1.5">
               <Label>{t.usernameLabel}</Label>
               <Input value={username} onChange={e => setUsername(e.target.value)} className="focus-visible:ring-amber-400" />
@@ -256,13 +260,13 @@ export default function ProfileModal({ open, onClose }: Props) {
               <Input type="email" value={email} onChange={e => setEmail(e.target.value)} className="focus-visible:ring-amber-400" />
             </div>
             <Button
-              onClick={saveProfile}
+              type="submit"
               disabled={savingProfile}
               className="w-full bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
             >
               {savingProfile ? t.saving : t.saveChanges}
             </Button>
-          </div>
+          </form>
         )}
 
         {/* Avatar tab */}
@@ -310,24 +314,26 @@ export default function ProfileModal({ open, onClose }: Props) {
                     </button>
                   ))}
                 </div>
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1 space-y-1.5">
-                    <Label>{t.avatarSeedLabel}</Label>
+                <div className="space-y-1.5">
+                  <Label>{t.avatarSeedLabel}</Label>
+                  <div className="flex gap-2 items-center">
                     <Input
                       value={avatarSeed}
                       onChange={e => setAvatarSeed(e.target.value)}
                       placeholder={t.avatarSeedPlaceholder}
                       className="focus-visible:ring-amber-400"
                     />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setAvatarSeed(Math.random().toString(36).slice(2, 8))}
+                      title={t.avatarSeedHint}
+                      className="shrink-0"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setAvatarSeed(Math.random().toString(36).slice(2, 8))}
-                    title="Random seed"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </Button>
+                  <p className="text-xs text-muted-foreground">{t.avatarSeedHint}</p>
                 </div>
               </>
             )}
@@ -404,29 +410,40 @@ export default function ProfileModal({ open, onClose }: Props) {
         )}
 
         {/* Password tab */}
-        {tab === 'password' && (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label>{t.currentPassword}</Label>
-              <Input type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} className="focus-visible:ring-amber-400" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>{t.newPasswordLabel}</Label>
-              <Input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder={t.minCharsHint} className="focus-visible:ring-amber-400" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>{t.confirmPasswordLabel}</Label>
-              <Input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} className="focus-visible:ring-amber-400" />
-            </div>
-            <Button
-              onClick={savePassword}
-              disabled={savingPw}
-              className="w-full bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
-            >
-              {savingPw ? t.updating : t.updatePassword}
-            </Button>
-          </div>
-        )}
+        {tab === 'password' && (() => {
+          const pwError = newPw
+            ? (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPw) ? t.toastPasswordMinLength : '')
+            : '';
+          const confirmError = confirmPw
+            ? (confirmPw !== newPw ? t.toastPasswordsDoNotMatch : '')
+            : '';
+          const canSave = !savingPw && !!currentPw && !pwError && !!newPw && !confirmError && !!confirmPw;
+          return (
+            <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (canSave) savePassword(); }}>
+              <div className="space-y-1.5">
+                <Label>{t.currentPassword}</Label>
+                <PasswordInput value={currentPw} onChange={e => setCurrentPw(e.target.value)} className="focus-visible:ring-amber-400" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t.newPasswordLabel}</Label>
+                <PasswordInput value={newPw} onChange={e => setNewPw(e.target.value)} placeholder={t.minCharsHint} className="focus-visible:ring-amber-400" />
+                {pwError && <p className="text-xs text-red-500">{pwError}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t.confirmPasswordLabel}</Label>
+                <PasswordInput value={confirmPw} onChange={e => setConfirmPw(e.target.value)} className="focus-visible:ring-amber-400" />
+                {confirmError && <p className="text-xs text-red-500">{confirmError}</p>}
+              </div>
+              <Button
+                type="submit"
+                disabled={!canSave}
+                className="w-full bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
+              >
+                {savingPw ? t.updating : t.updatePassword}
+              </Button>
+            </form>
+          );
+        })()}
       </DialogContent>
     </Dialog>
   );

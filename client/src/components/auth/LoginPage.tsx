@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Music2 } from 'lucide-react';
+import { toast } from 'sonner';
 import GoogleLoginButton from './GoogleLoginButton';
 import { useAuth } from '../../context/AuthContext';
 import { useUILanguage } from '../../context/UILanguageContext';
@@ -8,24 +9,28 @@ import AuthLanguageToggle from './AuthLanguageToggle';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { PasswordInput } from '../ui/PasswordInput';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle } = useAuth();
   const { t } = useUILanguage();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
     setLoading(true);
     try {
       await login(email, password, true);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg || 'Sign in failed');
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        toast.error(t.signInFailed);
+      } else {
+        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        toast.error(msg || t.signInFailed);
+      }
     } finally {
       setLoading(false);
     }
@@ -33,13 +38,12 @@ export default function LoginPage() {
 
   async function handleGoogleSuccess(credentialResponse: { credential?: string }) {
     if (!credentialResponse.credential) return;
-    setError('');
     setLoading(true);
     try {
       await loginWithGoogle(credentialResponse.credential);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg || 'Google sign-in failed');
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(msg || 'Google sign-in failed');
     } finally {
       setLoading(false);
     }
@@ -85,9 +89,8 @@ export default function LoginPage() {
                   {t.forgotPassword}
                 </Link>
               </div>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -96,10 +99,6 @@ export default function LoginPage() {
                 className="h-11 focus-visible:ring-amber-400 text-gray-900 placeholder:text-gray-400"
               />
             </div>
-
-            {error && (
-              <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
-            )}
 
             <Button
               type="submit"
@@ -120,7 +119,7 @@ export default function LoginPage() {
           {/* Google button */}
           <GoogleLoginButton
             onSuccess={handleGoogleSuccess}
-            onError={() => setError('Google sign-in failed')}
+            onError={() => toast.error('Google sign-in failed')}
           />
         </div>
 

@@ -1,13 +1,13 @@
 # WordChord — Monorepo
 
-Full-stack chord notebook app. React frontend + Express/PostgreSQL backend.
+Full-stack chord notebook app. React frontend + NestJS/PostgreSQL backend.
 
 ## Structure
 
 ```
 Song-Notebook/
 ├── client/          # React + Vite frontend  →  see client/src/CLAUDE.md
-├── server/          # Express backend         →  see server/CLAUDE.md
+├── server/          # NestJS backend          →  see server/CLAUDE.md
 ├── package.json     # Root scripts (runs both apps via concurrently)
 ├── render.yaml      # Render.com deployment config (backend)
 └── .gitignore
@@ -24,7 +24,7 @@ npm run dev
 
 # Or run separately
 npm run dev:client   # Vite on :5173
-npm run dev:server   # Express on :3001
+npm run dev:server   # NestJS on :3001
 ```
 
 ## Tech Stack
@@ -36,9 +36,10 @@ npm run dev:server   # Express on :3001
 | State     | React Query (@tanstack/react-query)                    |
 | Forms     | react-hook-form + zod                                  |
 | Routing   | React Router v6                                        |
-| HTTP      | Axios with Supabase JWT Bearer interceptors            |
+| HTTP      | Axios with JWT Bearer interceptors                     |
 | Auth      | bcryptjs + jsonwebtoken (7-day JWTs, local users table)|
-| Backend   | Node.js, Express, TypeScript (tsx)                     |
+| Backend   | Node.js, NestJS 10, TypeScript                         |
+| Validation| class-validator + class-transformer (DTOs)             |
 | ORM       | Drizzle ORM + drizzle-kit                              |
 | Database  | PostgreSQL — Neon (prod) / Docker (local dev)          |
 
@@ -49,7 +50,6 @@ npm run dev:server   # Express on :3001
 | Vercel   | Frontend (SPA)  | Auto-deploy on push to `main`   |
 | Render   | Backend API     | Auto-deploy on push to `main`   |
 | Neon     | PostgreSQL DB   | Managed cloud Postgres          |
-| Neon     | PostgreSQL DB   | Managed cloud Postgres (users + songs) |
 
 **Deploy to production = merge `dev` → `main` and push.**
 Both Vercel and Render watch `main` and redeploy automatically.
@@ -68,6 +68,9 @@ JWT_SECRET=your-long-random-secret            # generate: openssl rand -hex 32
 ALLOWED_ORIGIN=https://your-app.vercel.app
 PORT=10000
 NODE_ENV=production
+GOOGLE_CLIENT_ID=your-google-client-id
+RESEND_API_KEY=your-resend-api-key
+APP_URL=https://your-app.vercel.app
 ```
 
 ## Database (Local Dev — Docker)
@@ -90,18 +93,21 @@ Local connection: `postgresql://songuser:songpass@localhost:54327/song_notebook`
 
 - Users are stored in the local `users` table in PostgreSQL (Neon in prod)
 - Passwords hashed with bcryptjs (10 rounds)
-- On login/register: Express returns a JWT signed with `JWT_SECRET` (7-day expiry)
+- On login/register: NestJS returns a JWT signed with `JWT_SECRET` (7-day expiry)
 - Frontend stores the token in `localStorage` (or `sessionStorage`)
 - Axios interceptor attaches `Authorization: Bearer <token>` to every API request
-- Backend middleware (`requireAuth`) verifies the JWT with `jsonwebtoken.verify()`
+- `JwtStrategy` (Passport) verifies the token; `JwtAuthGuard` protects controllers
 - On 401: client clears storage and redirects to `/sign-in`
 
 ## Database Schema (Drizzle / Neon)
 
 ```
-users:         id (uuid PK), email (unique), username (unique), password_hash, avatar, created_at
-songs:         id, user_id, title, artist, key, capo, language, sections (json), created_at, updated_at
-deleted_songs: id, user_id, title, artist, key, capo, language, sections (json), created_at, updated_at, deleted_at
+users:                  id (uuid PK), email (unique), username (unique), password_hash (nullable),
+                        google_id (unique, nullable), avatar, created_at
+songs:                  id, user_id, title, artist, key, capo, language, sections (json),
+                        recent_chords (json), created_at, updated_at
+deleted_songs:          mirrors songs + deleted_at timestamp
+password_reset_tokens:  id, user_id, token (unique), expires_at, used_at
 ```
 
 Migrations live in `server/drizzle/`. Run `npx drizzle-kit generate` after schema changes, then `npx drizzle-kit migrate`.

@@ -1,0 +1,114 @@
+---
+title: Songs
+description: Song CRUD and trash management
+---
+
+Base path: `/api/songs`
+
+All endpoints require `Authorization: Bearer <token>`.
+
+---
+
+## List songs
+
+<ParamField method="GET" path="/api/songs" />
+
+Returns all active songs for the authenticated user, ordered by `updated_at` descending.
+
+**Response `200`**
+```json
+[
+  {
+    "id": "uuid",
+    "title": "Hallelujah",
+    "artist": "Leonard Cohen",
+    "key": "C",
+    "capo": 0,
+    "language": "en",
+    "sections": [...],
+    "recentChords": ["Am", "F", "C", "G"],
+    "createdAt": "...",
+    "updatedAt": "..."
+  }
+]
+```
+
+---
+
+## Create song
+
+<ParamField method="POST" path="/api/songs" />
+
+**Body**
+
+| Field | Type | Default |
+|-------|------|---------|
+| `title` | string | required |
+| `artist` | string | — |
+| `key` | string | — |
+| `capo` | number | `0` |
+| `language` | `"en"` \| `"he"` \| `"mixed"` | `"en"` |
+| `sections` | `Section[]` | `[]` |
+
+**Response `201`** — created song object.
+
+---
+
+## Update song
+
+<ParamField method="PUT" path="/api/songs/:id" />
+
+Same body shape as create. Returns `404` if the song doesn't exist or belongs to another user.
+
+**Response `200`** — updated song object.
+
+---
+
+## Update recent chords
+
+<ParamField method="PATCH" path="/api/songs/:id/recent-chords" />
+
+**Body**
+```json
+{ "recentChords": ["Am", "F", "C", "G"] }
+```
+
+**Response `200`** — updated song object.
+
+---
+
+## Delete song (soft)
+
+<ParamField method="DELETE" path="/api/songs/:id" />
+
+Moves the song to `deleted_songs`. Recoverable for 30 days.
+
+**Response `200`** `{ "success": true }`
+
+---
+
+## List deleted songs
+
+<ParamField method="GET" path="/api/songs/deleted" />
+
+Returns soft-deleted songs for the authenticated user.
+
+---
+
+## Restore song
+
+<ParamField method="POST" path="/api/songs/deleted/:id/restore" />
+
+Moves the song back to `songs`.
+
+**Response `200`** — restored song object.
+
+---
+
+## Permanently delete
+
+<ParamField method="DELETE" path="/api/songs/deleted/:id" />
+
+Removes from `deleted_songs` permanently.
+
+**Response `200`** `{ "success": true }`
