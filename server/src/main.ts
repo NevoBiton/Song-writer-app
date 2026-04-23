@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
@@ -34,8 +35,19 @@ async function bootstrap() {
     }),
   );
 
+  // Swagger UI — available at /api/docs
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('WordChord API')
+    .setDescription('REST API for the WordChord chord notebook app')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, document);
+
   await app.listen(port);
   console.log(`🎵 WordChord API running on http://localhost:${port}`);
+  console.log(`📖 Swagger docs at http://localhost:${port}/api/docs`);
 }
 
 bootstrap();
