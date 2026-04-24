@@ -70,6 +70,15 @@ function mockUpdate(returnValue: unknown) {
   };
 }
 
+/** Chains .set().where() for updates that do not call .returning() */
+function mockUpdateSimple() {
+  return {
+    set: jest.fn().mockReturnValue({
+      where: jest.fn().mockResolvedValue(undefined),
+    }),
+  };
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('AuthService', () => {
@@ -204,6 +213,55 @@ describe('AuthService', () => {
       mockDb.db.select.mockReturnValue(mockSelect(null));
 
       await expect(service.resetPassword({ token: 'bad-token', password: 'NewPass1' }))
+        .rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ── confirmEmail ───────────────────────────────────────────────────────────
+
+  describe('confirmEmail()', () => {
+    const validConfirmToken = {
+      id: 'confirm-token-uuid',
+      userId: 'user-uuid-1',
+      token: 'valid-hex-token',
+      expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+      confirmedAt: null,
+    };
+
+    it('confirms the user and returns a success message when token is valid', async () => {
+      mockDb.db.select.mockReturnValue(mockSelect(validConfirmToken));
+      mockDb.db.update.mockReturnValue(mockUpdateSimple());
+
+      const result = await service.confirmEmail('valid-hex-token');
+
+      expect(result.message).toContain('confirmed');
+      expect(mockDb.db.update).toHaveBeenCalledTimes(2); // token + user
+    });
+
+    it('returns success without updating when token is already confirmed (idempotent)', async () => {
+      mockDb.db.select.mockReturnValue(
+        mockSelect({ ...validConfirmToken, confirmedAt: new Date() }),
+      );
+
+      const result = await service.confirmEmail('valid-hex-token');
+
+      expect(result.message).toContain('confirmed');
+      expect(mockDb.db.update).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when token does not exist', async () => {
+      mockDb.db.select.mockReturnValue(mockSelect(null));
+
+      await expect(service.confirmEmail('nonexistent-token'))
+        .rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when token is expired', async () => {
+      mockDb.db.select.mockReturnValue(
+        mockSelect({ ...validConfirmToken, expiresAt: new Date(Date.now() - 1000) }),
+      );
+
+      await expect(service.confirmEmail('expired-token'))
         .rejects.toThrow(BadRequestException);
     });
   });
