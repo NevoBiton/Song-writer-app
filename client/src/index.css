@@ -75,6 +75,7 @@
   * {
     box-sizing: border-box;
     border-color: hsl(var(--border));
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
@@ -100,12 +101,14 @@
     font-size: var(--song-font-size, 1.25rem);
   }
 
-  .word-token:hover .token-word {
-    @apply bg-amber-100;
-  }
+  @media (hover: hover) {
+    .word-token:hover .token-word {
+      @apply bg-amber-100;
+    }
 
-  .dark .word-token:hover .token-word {
-    @apply bg-amber-900/30;
+    .dark .word-token:hover .token-word {
+      @apply bg-amber-900/30;
+    }
   }
 
   .word-token.is-readonly {
