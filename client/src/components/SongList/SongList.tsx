@@ -5,7 +5,7 @@ import { Song } from '../../types';
 import { DeletedSong } from '@/hooks/useSongLibrary';
 import { Plus } from 'lucide-react';
 import { useUILanguage } from '@/context/UILanguageContext';
-import { ButtonWithIcon } from '@/components/NewSongButton';
+import { ButtonWithIcon } from '@/components/ButtonWithIcon';
 import type { T } from '@/context/UILanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

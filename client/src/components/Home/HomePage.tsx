@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Music, Plus, BookOpen } from 'lucide-react';
 import { Song } from '@/types';
 import { Button } from '@/components/ui/button';
-import { ButtonWithIcon } from '@/components/NewSongButton';
+import { ButtonWithIcon } from '@/components/ButtonWithIcon';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUILanguage } from '@/context/UILanguageContext';
