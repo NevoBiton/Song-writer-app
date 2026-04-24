@@ -57,6 +57,13 @@
       "when": 1776962961485,
       "tag": "0007_thick_hellcat",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777036579270,
+      "tag": "0008_dapper_albert_cleary",
+      "breakpoints": true
     }
   ]
 }

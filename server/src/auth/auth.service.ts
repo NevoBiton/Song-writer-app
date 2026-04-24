@@ -2,7 +2,7 @@ import { Injectable, Logger, BadRequestException, UnauthorizedException, Conflic
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
-import { users, passwordResetTokens } from '../db/schema';
+import { users, passwordResetTokens, emailConfirmationTokens } from '../db/schema';
 import { eq, and, gt, isNull } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'node:crypto';
@@ -56,19 +56,41 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
+    const [existing] = await this.db.db.select().from(users).where(eq(users.email, dto.email));
+    if (existing) {
+      if (!existing.emailConfirmed) {
+        this.logger.warn(`Register: blocked — email pending confirmation: ${dto.email}`);
+        throw new ConflictException('An account with this email is pending confirmation. Please check your inbox.');
+      }
+      this.logger.warn(`Register: blocked — email already taken: ${dto.email}`);
+      throw new ConflictException('Email already taken');
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, 10);
+    let user: typeof users.$inferSelect;
     try {
-      const [user] = await this.db.db
+      [user] = await this.db.db
         .insert(users)
-        .values({ email: dto.email, username: dto.username, passwordHash })
+        .values({ email: dto.email, username: dto.username, passwordHash, emailConfirmed: false })
         .returning();
-      this.logger.log(`User registered: ${user.email}`);
-      return { token: this.signToken(user.id), user: this.toUserPayload(user) };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('unique')) throw new ConflictException('Email already taken');
+      if (msg.includes('unique')) throw new ConflictException('Username already taken');
       throw err;
     }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
+    await this.db.db.insert(emailConfirmationTokens).values({ userId: user.id, token: rawToken, expiresAt });
+    this.logger.log(`User registered (awaiting confirmation): ${user.email}`);
+    try {
+      await this.sendConfirmationEmail(user.email, user.username, rawToken, dto.lang);
+      this.logger.log(`Confirmation email sent to: ${user.email}`);
+    } catch (err) {
+      this.logger.error(`Failed to send confirmation email to ${user.email}: ${err instanceof Error ? err.message : err}`);
+    }
+
+    return { message: 'Registration successful. Please check your email to confirm your account.' };
   }
 
   async login(dto: LoginDto) {
@@ -85,6 +107,10 @@ export class AuthService {
     if (!valid) {
       this.logger.warn(`Failed login attempt — wrong password: ${dto.email}`);
       throw new UnauthorizedException('Invalid email or password');
+    }
+    if (!user.emailConfirmed) {
+      this.logger.warn(`Login blocked — email not confirmed: ${user.email}`);
+      throw new UnauthorizedException('Please confirm your email before logging in. Check your inbox for the confirmation link.');
     }
     this.logger.log(`User logged in: ${user.email}`);
     return { token: this.signToken(user.id), user: this.toUserPayload(user) };
@@ -127,7 +153,7 @@ export class AuthService {
         const suffix = crypto.randomBytes(3).toString('hex');
         const [created] = await this.db.db
           .insert(users)
-          .values({ email: googleEmail, username: `${base}_${suffix}`, googleId: googleSub, avatar: googlePicture ?? null })
+          .values({ email: googleEmail, username: `${base}_${suffix}`, googleId: googleSub, avatar: googlePicture ?? null, emailConfirmed: true })
           .returning();
         user = created;
         this.logger.log(`Google sign-in: new user registered via Google: ${googleEmail}`);
@@ -229,5 +255,68 @@ export class AuthService {
 
     this.logger.log(`Reset password: password successfully reset for user=${user.email}`);
     return { token: this.signToken(user.id), user: this.toUserPayload(user) };
+  }
+
+  async confirmEmail(token: string) {
+    const now = new Date();
+
+    const [confirmToken] = await this.db.db
+      .select()
+      .from(emailConfirmationTokens)
+      .where(eq(emailConfirmationTokens.token, token));
+
+    if (!confirmToken) {
+      this.logger.warn(`Email confirmation: token not found`);
+      throw new BadRequestException('This confirmation link is invalid or has expired.');
+    }
+
+    // Idempotent — already confirmed is fine
+    if (confirmToken.confirmedAt) {
+      this.logger.log(`Email confirmation: token already used for userId=${confirmToken.userId}`);
+      return { message: 'Email already confirmed. You can now log in.' };
+    }
+
+    if (confirmToken.expiresAt < now) {
+      this.logger.warn(`Email confirmation: token expired for userId=${confirmToken.userId}`);
+      throw new BadRequestException('This confirmation link has expired.');
+    }
+
+    await this.db.db
+      .update(emailConfirmationTokens)
+      .set({ confirmedAt: now })
+      .where(eq(emailConfirmationTokens.id, confirmToken.id));
+
+    await this.db.db
+      .update(users)
+      .set({ emailConfirmed: true })
+      .where(eq(users.id, confirmToken.userId));
+
+    this.logger.log(`Email confirmed successfully for userId=${confirmToken.userId}`);
+    return { message: 'Email confirmed successfully. You can now log in.' };
+  }
+
+  private async sendConfirmationEmail(to: string, username: string, token: string, lang?: string): Promise<void> {
+    const isHebrew = lang === 'he';
+    const appUrl = this.config.get<string>('APP_URL');
+    const confirmUrl = `${appUrl}/confirm-email?token=${token}`;
+    const subject = isHebrew ? 'אמת את כתובת האימייל שלך ב-WordChord' : 'Confirm your WordChord email address';
+    const html = isHebrew
+      ? `<div dir="rtl" style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;text-align:right">
+          <h2 style="color:#111827">ברוכים הבאים ל-WordChord!</h2>
+          <p style="color:#374151">היי ${username},</p>
+          <p style="color:#374151">תודה שנרשמת. לחץ על הכפתור למטה לאימות כתובת האימייל שלך — הקישור תקף ל-3 ימים.</p>
+          <a href="${confirmUrl}" style="display:inline-block;background:#fbbf24;color:#111827;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">אמת אימייל</a>
+          <p style="color:#6b7280;font-size:13px">אם לא נרשמת ל-WordChord, ניתן להתעלם מהמייל הזה.</p>
+          <p style="color:#9ca3af;font-size:12px">${confirmUrl}</p>
+        </div>`
+      : `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+          <h2 style="color:#111827">Welcome to WordChord!</h2>
+          <p style="color:#374151">Hi ${username},</p>
+          <p style="color:#374151">Thanks for signing up. Click the button below to confirm your email address — the link expires in 3 days.</p>
+          <a href="${confirmUrl}" style="display:inline-block;background:#fbbf24;color:#111827;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Confirm Email</a>
+          <p style="color:#6b7280;font-size:13px">If you didn't sign up for WordChord, you can safely ignore this email.</p>
+          <p style="color:#9ca3af;font-size:12px">${confirmUrl}</p>
+        </div>`;
+    await this.sendEmail(to, subject, html);
   }
 }

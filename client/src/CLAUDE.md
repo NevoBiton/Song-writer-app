@@ -18,8 +18,12 @@ src/
 ├── components/
 │   ├── ui/               # shadcn/ui primitives (button, input, card, dialog…)
 │   ├── auth/
-│   │   ├── LoginPage.tsx      # react-hook-form + zod login
-│   │   └── RegisterPage.tsx   # react-hook-form + zod register
+│   │   ├── LoginPage.tsx           # react-hook-form + zod login
+│   │   ├── RegisterPage.tsx        # react-hook-form + zod register; shows "check your email" screen after submit
+│   │   ├── ForgotPasswordPage.tsx  # Request password reset email
+│   │   ├── ResetPasswordPage.tsx   # Set new password via token from email
+│   │   ├── ConfirmEmailPage.tsx    # /confirm-email?token=… — confirms registration, shows success/error
+│   │   └── AuthLanguageToggle.tsx  # EN/HE toggle shown on all auth pages
 │   ├── Layout/
 │   │   └── AppLayout.tsx      # Navbar, dark mode, language toggle, profile
 │   ├── SongList/
@@ -31,10 +35,14 @@ src/
 │   ├── ChordPicker/
 │   │   └── ChordPicker.tsx    # Chord selector (mobile sheet / desktop panel)
 │   ├── ChordDiagram/          # Fingering diagram component
+│   ├── Home/
+│   │   └── HomePage.tsx       # Landing view for authenticated users
+│   ├── ButtonWithIcon.tsx     # RTL-aware button: icon left (EN) / icon right (HE)
 │   └── profile/
 │       └── ProfileModal.tsx   # Edit username, email, avatar, password
 ├── context/
-│   ├── AuthContext.tsx        # JWT auth (login/register/logout/updateUser)
+│   ├── AuthContext.tsx        # JWT auth — login/register/logout/updateUser
+│   │                          #   register() calls API and returns; does NOT store token (email confirmation required)
 │   ├── ThemeContext.tsx       # Dark/light mode (persisted to localStorage)
 │   └── UILanguageContext.tsx  # EN/HE UI translations (persisted to localStorage)
 ├── hooks/
@@ -60,6 +68,9 @@ src/
 - JWT stored in `localStorage` (remember me) or `sessionStorage` (session only)
 - `api.ts` reads from both storages; clears both on 401
 - `AuthenticatedApp` only renders when `isAuthenticated === true`
+- **Registration requires email confirmation**: `register()` in `AuthContext` calls the API and returns without storing a token. `RegisterPage` shows a "check your email" screen. Login is blocked until the user clicks the confirmation link.
+- **ConfirmEmailPage** (`/confirm-email?token=…`): hits `GET /api/auth/confirm-email`, uses `AbortController` to survive React Strict Mode double-invocation. Available in both authenticated and unauthenticated route trees.
+- Google sign-in users bypass email confirmation (auto-confirmed server-side)
 
 ### React Query
 - `useSongLibrary` uses `useQuery(['songs'])` for fetching and `useMutation` for CRUD
@@ -118,4 +129,4 @@ interface Token {
 
 ## Environment
 
-Frontend expects backend at `http://localhost:3001/api`. Change `baseURL` in `src/lib/api.ts` for production.
+Frontend expects backend at `http://localhost:3001/api`. In production the URL comes from `VITE_API_URL` (set in Vercel dashboard); `src/lib/api.ts` reads `import.meta.env.VITE_API_URL` with a fallback to the localhost address.

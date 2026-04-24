@@ -205,6 +205,15 @@ export const translations = {
     signUpLink: 'Sign up',
     alreadyHaveAccount: 'Already have an account?',
     signInLink: 'Sign in',
+    // Email confirmation
+    confirmEmailTitle: 'Check your email',
+    confirmEmailSent: 'We sent a confirmation link to {email}. The link expires in 3 days.',
+    confirmEmailExpiredTitle: 'Link expired or invalid',
+    confirmEmailExpiredDesc: 'This confirmation link is no longer valid. Please register again.',
+    confirmingEmail: 'Confirming your email…',
+    emailConfirmedTitle: 'Email confirmed!',
+    emailConfirmedDesc: 'Your email has been confirmed. You can now sign in.',
+    pendingConfirmation: 'An account with this email is pending confirmation. Please check your inbox.',
   },
   he: {
     // App
@@ -408,6 +417,15 @@ export const translations = {
     signUpLink: 'הירשם',
     alreadyHaveAccount: 'כבר יש לך חשבון?',
     signInLink: 'התחבר',
+    // Email confirmation
+    confirmEmailTitle: 'בדוק את האימייל שלך',
+    confirmEmailSent: 'שלחנו קישור אימות לכתובת {email}. הקישור תקף ל-3 ימים.',
+    confirmEmailExpiredTitle: 'הקישור אינו תקף',
+    confirmEmailExpiredDesc: 'קישור האימות אינו תקף יותר. אנא הירשם מחדש.',
+    confirmingEmail: 'מאמת את האימייל…',
+    emailConfirmedTitle: 'האימייל אומת!',
+    emailConfirmedDesc: 'כתובת האימייל שלך אומתה בהצלחה. כעת תוכל להתחבר.',
+    pendingConfirmation: 'חשבון עם האימייל הזה ממתין לאימות. בדוק את תיבת הדואר שלך.',
   },
 } as const;
 

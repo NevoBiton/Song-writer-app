@@ -13,7 +13,7 @@ interface AuthContextValue {
   token: string | null;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<void>;
-  register: (email: string, username: string, password: string) => Promise<void>;
+  register: (email: string, username: string, password: string, lang?: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: AuthUser) => void;
   storeDirectAuth: (token: string, user: AuthUser) => void;
@@ -61,12 +61,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(newUser);
   }, []);
 
-  const register = useCallback(async (email: string, username: string, password: string) => {
-    const { data } = await api.post<{ token: string; user: AuthUser }>('/auth/register', { email, username, password });
-    localStorage.setItem('auth_token', data.token);
-    localStorage.setItem('auth_user', JSON.stringify(data.user));
-    setToken(data.token);
-    setUser(data.user);
+  const register = useCallback(async (email: string, username: string, password: string, lang?: string) => {
+    await api.post('/auth/register', { email, username, password, lang });
+    // No auto-login — user must confirm email first
   }, []);
 
   const logout = useCallback(() => {

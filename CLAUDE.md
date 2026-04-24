@@ -69,7 +69,8 @@ ALLOWED_ORIGIN=https://your-app.vercel.app
 PORT=10000
 NODE_ENV=production
 GOOGLE_CLIENT_ID=your-google-client-id
-RESEND_API_KEY=your-resend-api-key
+BREVO_API_KEY=xkeysib-...                     # Brevo transactional email API key
+BREVO_SENDER_EMAIL=you@example.com            # Verified sender address in Brevo
 APP_URL=https://your-app.vercel.app
 ```
 
@@ -93,21 +94,25 @@ Local connection: `postgresql://songuser:songpass@localhost:54327/song_notebook`
 
 - Users are stored in the local `users` table in PostgreSQL (Neon in prod)
 - Passwords hashed with bcryptjs (10 rounds)
-- On login/register: NestJS returns a JWT signed with `JWT_SECRET` (7-day expiry)
+- **Registration requires email confirmation** — a Brevo email is sent with a 3-day link; login is blocked until confirmed
+- Google sign-in users are auto-confirmed (Google already verified the email)
+- On login: NestJS returns a JWT signed with `JWT_SECRET` (7-day expiry)
 - Frontend stores the token in `localStorage` (or `sessionStorage`)
 - Axios interceptor attaches `Authorization: Bearer <token>` to every API request
 - `JwtStrategy` (Passport) verifies the token; `JwtAuthGuard` protects controllers
 - On 401: client clears storage and redirects to `/sign-in`
+- Transactional email (confirmation + password reset) sent via **Brevo REST API** (native `fetch`, no SDK)
 
 ## Database Schema (Drizzle / Neon)
 
 ```
-users:                  id (uuid PK), email (unique), username (unique), password_hash (nullable),
-                        google_id (unique, nullable), avatar, created_at
-songs:                  id, user_id, title, artist, key, capo, language, sections (json),
-                        recent_chords (json), created_at, updated_at
-deleted_songs:          mirrors songs + deleted_at timestamp
-password_reset_tokens:  id, user_id, token (unique), expires_at, used_at
+users:                       id (uuid PK), email (unique), username (unique), password_hash (nullable),
+                             google_id (unique, nullable), avatar, email_confirmed (bool, default true), created_at
+songs:                       id, user_id, title, artist, key, capo, language, sections (json),
+                             recent_chords (json), created_at, updated_at
+deleted_songs:               mirrors songs + deleted_at timestamp
+password_reset_tokens:       id, user_id, token (unique), expires_at, used_at
+email_confirmation_tokens:   id, user_id, token (unique), expires_at, confirmed_at
 ```
 
 Migrations live in `server/drizzle/`. Run `npx drizzle-kit generate` after schema changes, then `npx drizzle-kit migrate`.

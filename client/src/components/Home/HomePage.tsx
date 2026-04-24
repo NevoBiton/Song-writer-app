@@ -100,7 +100,7 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
             ].map(({ icon: Icon, label, value }) => (
               <Card
                 key={label}
-                className="border-border cursor-pointer hover:border-amber-400 hover:shadow-sm transition-all"
+                className="border-border cursor-pointer [@media(hover:hover)]:hover:border-amber-400 [@media(hover:hover)]:hover:shadow-sm transition-all"
                 onClick={() => navigate('/library')}
               >
                 <CardContent className="p-4 flex items-center gap-3">
@@ -151,11 +151,11 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
               <button
                 key={song.id}
                 onClick={() => { onSelectSong(song); navigate('/library'); }}
-                className="text-left p-4 rounded-xl border border-border bg-card hover:border-amber-400 hover:shadow-sm transition-all group"
+                className="text-left p-4 rounded-xl border border-border bg-card [@media(hover:hover)]:hover:border-amber-400 [@media(hover:hover)]:hover:shadow-sm transition-all group"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-semibold text-foreground truncate group-hover:text-amber-600 transition-colors">
+                    <p className="font-semibold text-foreground truncate [@media(hover:hover)]:group-hover:text-amber-600 transition-colors">
                       {song.title}
                     </p>
                     {song.artist && (

@@ -62,4 +62,12 @@ export class AuthController {
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
   }
+
+  @Get('confirm-email')
+  @ApiOperation({ summary: 'Confirm email address using a token from the confirmation email' })
+  @ApiResponse({ status: 200, description: 'Email confirmed successfully' })
+  @ApiResponse({ status: 400, description: 'Token is invalid or expired' })
+  confirmEmail(@Query('token') token: string) {
+    return this.authService.confirmEmail(token);
+  }
 }
