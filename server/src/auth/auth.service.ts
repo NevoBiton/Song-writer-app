@@ -105,6 +105,7 @@ export class AuthService {
           .where(eq(users.id, byEmail.id))
           .returning();
         user = updated;
+        this.logger.log(`Google sign-in: linked Google account to existing user ${googleEmail}`);
       } else {
         const base = googleEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20) || 'user';
         const suffix = crypto.randomBytes(3).toString('hex');
@@ -113,7 +114,10 @@ export class AuthService {
           .values({ email: googleEmail, username: `${base}_${suffix}`, googleId: googleSub, avatar: googlePicture ?? null })
           .returning();
         user = created;
+        this.logger.log(`Google sign-in: new user registered via Google: ${googleEmail}`);
       }
+    } else {
+      this.logger.log(`Google sign-in: existing user logged in: ${googleEmail}`);
     }
 
     return { token: this.signToken(user.id), user: this.toUserPayload(user) };
@@ -124,7 +128,10 @@ export class AuthService {
     const OK = { message: 'If an account with that email exists, a reset link has been sent.' };
 
     const [user] = await this.db.db.select().from(users).where(eq(users.email, dto.email));
-    if (!user) return OK;
+    if (!user) {
+      this.logger.warn(`Forgot password: email not found: ${dto.email}`);
+      return OK;
+    }
 
     const rawToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
@@ -133,6 +140,7 @@ export class AuthService {
     const appUrl = this.config.get<string>('APP_URL');
     const resetUrl = `${appUrl}/reset-password?token=${rawToken}&lang=${isHebrew ? 'he' : 'en'}`;
 
+    this.logger.log(`Forgot password: reset email sent to ${user.email}`);
     await this.resend.emails.send({
       from: 'WordChord <onboarding@resend.dev>',
       to: user.email,
@@ -187,7 +195,10 @@ export class AuthService {
         ),
       );
 
-    if (!resetToken) throw new BadRequestException('This reset link is invalid or has expired.');
+    if (!resetToken) {
+      this.logger.warn(`Reset password: invalid or expired token used`);
+      throw new BadRequestException('This reset link is invalid or has expired.');
+    }
 
     await this.db.db
       .update(passwordResetTokens)
@@ -203,6 +214,7 @@ export class AuthService {
 
     if (!user) throw new BadRequestException('User not found');
 
+    this.logger.log(`Reset password: password successfully reset for user=${user.email}`);
     return { token: this.signToken(user.id), user: this.toUserPayload(user) };
   }
 }

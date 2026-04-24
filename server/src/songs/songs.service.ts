@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { songs, deletedSongs } from '../db/schema';
 import { eq, and, gte } from 'drizzle-orm';
@@ -7,6 +7,8 @@ import { UpdateSongDto } from './dto/update-song.dto';
 
 @Injectable()
 export class SongsService {
+  private readonly logger = new Logger(SongsService.name);
+
   constructor(private readonly db: DatabaseService) {}
 
   findAll(userId: string) {
@@ -26,6 +28,7 @@ export class SongsService {
         sections: dto.sections ?? [],
       })
       .returning();
+    this.logger.log(`Song created: "${song.title}" (id=${song.id}) by user=${userId}`);
     return song;
   }
 
@@ -45,6 +48,7 @@ export class SongsService {
       .returning();
 
     if (!song) throw new NotFoundException('Song not found');
+    this.logger.log(`Song updated: "${song.title}" (id=${id}) by user=${userId}`);
     return song;
   }
 
@@ -56,6 +60,7 @@ export class SongsService {
       .returning({ id: songs.id });
 
     if (!song) throw new NotFoundException('Song not found');
+    this.logger.debug(`Recent chords updated: song=${id} user=${userId} chords=[${chords.join(', ')}]`);
     return { success: true };
   }
 
@@ -81,6 +86,7 @@ export class SongsService {
       deletedAt: new Date(),
     });
 
+    this.logger.log(`Song moved to trash: "${song.title}" (id=${id}) by user=${userId}`);
     return { success: true };
   }
 
@@ -117,6 +123,7 @@ export class SongsService {
       })
       .returning();
 
+    this.logger.log(`Song restored: "${restored.title}" (id=${id}) by user=${userId}`);
     return restored;
   }
 
@@ -127,6 +134,7 @@ export class SongsService {
       .returning({ id: deletedSongs.id });
 
     if (!deleted) throw new NotFoundException('Deleted song not found');
+    this.logger.log(`Song permanently deleted: id=${id} by user=${userId}`);
     return { success: true };
   }
 }
