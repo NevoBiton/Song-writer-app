@@ -16,6 +16,7 @@ import LoginPage from './components/auth/LoginPage';
 import RegisterPage from './components/auth/RegisterPage';
 import ForgotPasswordPage from './components/auth/ForgotPasswordPage';
 import ResetPasswordPage from './components/auth/ResetPasswordPage';
+import ConfirmEmailPage from './components/auth/ConfirmEmailPage';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import HomePage from './components/Home/HomePage';
 import { AppLayout } from './components/Layout/AppLayout';
@@ -186,6 +187,7 @@ function AuthenticatedApp() {
           path="/library/:id"
           element={<SongEditorRoute songs={songs} loading={loading} isMobile={isMobile} updateSong={updateSong} />}
         />
+        <Route path="/confirm-email" element={<ConfirmEmailPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
@@ -234,6 +236,7 @@ function AppRoutes() {
         <Route path="/sign-up" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/confirm-email" element={<ConfirmEmailPage />} />
         <Route path="*" element={<Navigate to="/sign-in" replace />} />
       </Routes>
     );

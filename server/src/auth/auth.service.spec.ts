@@ -20,6 +20,7 @@ const mockUser = {
   passwordHash: '$2a$10$hashedpassword', // bcrypt hash placeholder
   googleId: null,
   avatar: null,
+  emailConfirmed: true,
   createdAt: new Date(),
 };
 
@@ -40,7 +41,8 @@ const mockConfigService = {
     const config: Record<string, string> = {
       JWT_SECRET: 'test-secret',
       GOOGLE_CLIENT_ID: 'google-client-id',
-      RESEND_API_KEY: 'resend-api-key',
+      BREVO_API_KEY: 'brevo-api-key',
+      BREVO_SENDER_EMAIL: 'test@example.com',
       APP_URL: 'http://localhost:5173',
     };
     return config[key];
@@ -90,8 +92,16 @@ describe('AuthService', () => {
   // ── register ───────────────────────────────────────────────────────────────
 
   describe('register()', () => {
-    it('creates a user and returns token + user payload', async () => {
-      mockDb.db.insert.mockReturnValue(mockInsert(mockUser));
+    beforeEach(() => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true } as Response);
+    });
+
+    it('creates a user and returns a message (email confirmation required)', async () => {
+      // select returns no existing user, insert returns new user, second insert for token
+      mockDb.db.select.mockReturnValue(mockSelect(null));
+      mockDb.db.insert
+        .mockReturnValueOnce(mockInsert({ ...mockUser, emailConfirmed: false }))
+        .mockReturnValueOnce(mockInsert({ id: 'token-id' }));
 
       const result = await service.register({
         email: 'test@example.com',
@@ -99,20 +109,22 @@ describe('AuthService', () => {
         password: 'Password1',
       });
 
-      expect(result.token).toBe('mock-jwt-token');
-      expect(result.user.email).toBe('test@example.com');
-      expect(result.user).not.toHaveProperty('passwordHash');
+      expect(result.message).toContain('confirm your account');
     });
 
-    it('throws ConflictException when email is already taken', async () => {
-      mockDb.db.insert.mockReturnValue({
-        values: jest.fn().mockReturnValue({
-          returning: jest.fn().mockRejectedValue(new Error('unique constraint')),
-        }),
-      });
+    it('throws ConflictException when email exists and is confirmed', async () => {
+      mockDb.db.select.mockReturnValue(mockSelect(mockUser));
 
       await expect(
         service.register({ email: 'taken@example.com', username: 'user', password: 'Password1' }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws ConflictException when email exists and is pending confirmation', async () => {
+      mockDb.db.select.mockReturnValue(mockSelect({ ...mockUser, emailConfirmed: false }));
+
+      await expect(
+        service.register({ email: 'pending@example.com', username: 'user', password: 'Password1' }),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -147,6 +159,14 @@ describe('AuthService', () => {
 
     it('throws UnauthorizedException for Google-only account', async () => {
       mockDb.db.select.mockReturnValue(mockSelect({ ...mockUser, passwordHash: null }));
+
+      await expect(service.login({ email: 'test@example.com', password: 'Password1' }))
+        .rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws UnauthorizedException when email is not confirmed', async () => {
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockDb.db.select.mockReturnValue(mockSelect({ ...mockUser, emailConfirmed: false }));
 
       await expect(service.login({ email: 'test@example.com', password: 'Password1' }))
         .rejects.toThrow(UnauthorizedException);

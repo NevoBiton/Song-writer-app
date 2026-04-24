@@ -1,5 +1,5 @@
-import { IsEmail, IsString, MinLength, Matches } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsString, IsOptional, MinLength, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -18,4 +18,9 @@ export class RegisterDto {
   @Matches(/[a-z]/, { message: 'Password must contain at least one lowercase letter' })
   @Matches(/\d/, { message: 'Password must contain at least one number' })
   password: string;
+
+  @ApiPropertyOptional({ example: 'he', description: 'UI language for the confirmation email (en or he)' })
+  @IsOptional()
+  @IsString()
+  lang?: string;
 }

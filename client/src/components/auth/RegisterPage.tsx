@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Music2 } from 'lucide-react';
+import { Music2, Mail } from 'lucide-react';
 import GoogleLoginButton from './GoogleLoginButton';
 import { useAuth } from '../../context/AuthContext';
 import { useUILanguage } from '../../context/UILanguageContext';
@@ -19,8 +19,9 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
   const { register, loginWithGoogle } = useAuth();
-  const { t } = useUILanguage();
+  const { t, uiLang } = useUILanguage();
 
   const passwordError = password ? (PW_RE.test(password) ? '' : t.toastPasswordMinLength) : '';
   const confirmError = confirm ? (confirm === password ? '' : t.toastPasswordsDoNotMatch) : '';
@@ -32,9 +33,11 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      await register(email, username, password);
+      await register(email, username, password, uiLang);
+      setRegistered(true);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      const msg = (err as { response?: { data?: { message?: string; error?: string } } })?.response?.data?.message
+        ?? (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
       setError(msg || 'Registration failed');
     } finally {
       setLoading(false);
@@ -53,6 +56,28 @@ export default function RegisterPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (registered) {
+    return (
+      <div className="relative min-h-dvh bg-gray-50 flex flex-col items-center justify-center px-5 py-10">
+        <AuthLanguageToggle />
+        <div className="w-full max-w-sm text-center">
+          <div className="w-14 h-14 bg-amber-400 rounded-2xl flex items-center justify-center shadow-md mb-6 mx-auto">
+            <Mail className="w-7 h-7 text-gray-900" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t.confirmEmailTitle}</h1>
+          <p className="text-sm text-gray-500 mb-6">
+            {t.confirmEmailSent.replace('{email}', email)}
+          </p>
+          <Link to="/sign-in">
+            <Button className="w-full h-11 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0">
+              {t.backToSignIn}
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, json, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, json, timestamp, boolean } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -7,7 +7,16 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash'),            // nullable — Google-only users have no password
   googleId: text('google_id').unique(),           // nullable — only set for Google OAuth users
   avatar: text('avatar'),
+  emailConfirmed: boolean('email_confirmed').default(true).notNull(), // default true so existing users aren't locked out
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const emailConfirmationTokens = pgTable('email_confirmation_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  confirmedAt: timestamp('confirmed_at'),
 });
 
 export const passwordResetTokens = pgTable('password_reset_tokens', {
