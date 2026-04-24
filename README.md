@@ -12,7 +12,8 @@ A full-stack chord notebook app for musicians. Write lyrics, place chords above 
 - **Trash / restore** — soft-delete songs with a 30-day recovery window
 - **Bilingual UI** — full English and Hebrew support with RTL layout
 - **Auth** — email/password + Google sign-in
-- **Password reset** — email link flow via Resend
+- **Email confirmation** — new accounts require email verification before login (3-day link)
+- **Password reset** — email link flow via Brevo
 - **User profile** — avatar (DiceBear animated, uploaded photo, or URL), username, email, password
 
 ---
@@ -29,7 +30,7 @@ A full-stack chord notebook app for musicians. Write lyrics, place chords above 
 | ORM       | Drizzle ORM |
 | Database  | PostgreSQL — Neon (prod) / Docker (local dev) |
 | Auth      | bcryptjs + jsonwebtoken (7-day JWTs) |
-| Email     | Resend |
+| Email     | Brevo (transactional email via REST API) |
 | CI        | GitHub Actions (typecheck + tests + build on every PR) |
 
 ---
@@ -104,9 +105,10 @@ cd server && npm run db:migrate
 | `JWT_SECRET`       | Secret for signing JWTs                  |
 | `ALLOWED_ORIGIN`   | Frontend origin for CORS                 |
 | `PORT`             | Server port (Render sets this to 10000)  |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID                   |
-| `RESEND_API_KEY`   | Resend API key for password reset emails |
-| `APP_URL`          | Frontend URL (used in reset email links) |
+| `GOOGLE_CLIENT_ID`   | Google OAuth client ID                          |
+| `BREVO_API_KEY`      | Brevo API key for transactional emails          |
+| `BREVO_SENDER_EMAIL` | Verified sender email address in Brevo          |
+| `APP_URL`            | Frontend URL (used in email links)              |
 
 ---
 
@@ -116,7 +118,7 @@ cd server && npm run db:migrate
 cd server && npm test
 ```
 
-50 unit tests across 6 spec files covering all services and controllers.
+56 unit tests across 6 spec files covering all services and controllers.
 
 ---
 
@@ -148,6 +150,7 @@ Key routes:
 | POST   | /api/auth/register              | No   | Create account           |
 | POST   | /api/auth/login                 | No   | Get JWT                  |
 | POST   | /api/auth/google                | No   | Google sign-in           |
+| GET    | /api/auth/confirm-email         | No   | Confirm email address    |
 | POST   | /api/auth/forgot-password       | No   | Send reset email         |
 | POST   | /api/auth/reset-password        | No   | Complete password reset  |
 | GET    | /api/songs                      | Yes  | List songs               |
