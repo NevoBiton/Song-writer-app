@@ -7,7 +7,6 @@ import { eq, and, gt, isNull } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'node:crypto';
 import { OAuth2Client } from 'google-auth-library';
-import { Resend } from 'resend';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
@@ -20,7 +19,6 @@ type UserPayload = { id: string; email: string; username: string; avatar: string
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly googleClient: OAuth2Client;
-  private readonly resend: Resend;
 
   constructor(
     private readonly db: DatabaseService,
@@ -28,7 +26,25 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {
     this.googleClient = new OAuth2Client(this.config.get<string>('GOOGLE_CLIENT_ID'));
-    this.resend = new Resend(this.config.get<string>('RESEND_API_KEY'));
+  }
+
+  private async sendEmail(to: string, subject: string, html: string): Promise<void> {
+    const apiKey = this.config.get<string>('BREVO_API_KEY')!;
+    const senderEmail = this.config.get<string>('BREVO_SENDER_EMAIL')!;
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': apiKey, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sender: { name: 'WordChord', email: senderEmail },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Brevo API error ${response.status}: ${text}`);
+    }
   }
 
   private signToken(userId: string): string {
@@ -105,6 +121,7 @@ export class AuthService {
           .where(eq(users.id, byEmail.id))
           .returning();
         user = updated;
+        this.logger.log(`Google sign-in: linked Google account to existing user ${googleEmail}`);
       } else {
         const base = googleEmail.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20) || 'user';
         const suffix = crypto.randomBytes(3).toString('hex');
@@ -113,7 +130,10 @@ export class AuthService {
           .values({ email: googleEmail, username: `${base}_${suffix}`, googleId: googleSub, avatar: googlePicture ?? null })
           .returning();
         user = created;
+        this.logger.log(`Google sign-in: new user registered via Google: ${googleEmail}`);
       }
+    } else {
+      this.logger.log(`Google sign-in: existing user logged in: ${googleEmail}`);
     }
 
     return { token: this.signToken(user.id), user: this.toUserPayload(user) };
@@ -124,7 +144,10 @@ export class AuthService {
     const OK = { message: 'If an account with that email exists, a reset link has been sent.' };
 
     const [user] = await this.db.db.select().from(users).where(eq(users.email, dto.email));
-    if (!user) return OK;
+    if (!user) {
+      this.logger.warn(`Forgot password: email not found: ${dto.email}`);
+      return OK;
+    }
 
     const rawToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
@@ -133,28 +156,26 @@ export class AuthService {
     const appUrl = this.config.get<string>('APP_URL');
     const resetUrl = `${appUrl}/reset-password?token=${rawToken}&lang=${isHebrew ? 'he' : 'en'}`;
 
-    await this.resend.emails.send({
-      from: 'WordChord <onboarding@resend.dev>',
-      to: user.email,
-      subject: isHebrew ? 'איפוס סיסמה ל-WordChord' : 'Reset your WordChord password',
-      html: isHebrew
-        ? `<div dir="rtl" style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;text-align:right">
-            <h2 style="color:#111827">איפוס סיסמה</h2>
-            <p style="color:#374151">היי ${user.username},</p>
-            <p style="color:#374151">קיבלנו בקשה לאיפוס הסיסמה שלך ב-WordChord. לחץ על הכפתור למטה — הקישור תקף לשעה אחת.</p>
-            <a href="${resetUrl}" style="display:inline-block;background:#fbbf24;color:#111827;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">אפס סיסמה</a>
-            <p style="color:#6b7280;font-size:13px">אם לא ביקשת את זה, אפשר פשוט להתעלם מהמייל הזה.</p>
-            <p style="color:#9ca3af;font-size:12px">${resetUrl}</p>
-          </div>`
-        : `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
-            <h2 style="color:#111827">Reset your password</h2>
-            <p style="color:#374151">Hi ${user.username},</p>
-            <p style="color:#374151">We received a request to reset your WordChord password. Click the button below — the link expires in 1 hour.</p>
-            <a href="${resetUrl}" style="display:inline-block;background:#fbbf24;color:#111827;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Reset Password</a>
-            <p style="color:#6b7280;font-size:13px">If you didn't request this, you can safely ignore this email.</p>
-            <p style="color:#9ca3af;font-size:12px">${resetUrl}</p>
-          </div>`,
-    });
+    this.logger.log(`Forgot password: reset email sent to ${user.email}`);
+    const subject = isHebrew ? 'איפוס סיסמה ל-WordChord' : 'Reset your WordChord password';
+    const html = isHebrew
+      ? `<div dir="rtl" style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;text-align:right">
+          <h2 style="color:#111827">איפוס סיסמה</h2>
+          <p style="color:#374151">היי ${user.username},</p>
+          <p style="color:#374151">קיבלנו בקשה לאיפוס הסיסמה שלך ב-WordChord. לחץ על הכפתור למטה — הקישור תקף לשעה אחת.</p>
+          <a href="${resetUrl}" style="display:inline-block;background:#fbbf24;color:#111827;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">אפס סיסמה</a>
+          <p style="color:#6b7280;font-size:13px">אם לא ביקשת את זה, אפשר פשוט להתעלם מהמייל הזה.</p>
+          <p style="color:#9ca3af;font-size:12px">${resetUrl}</p>
+        </div>`
+      : `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+          <h2 style="color:#111827">Reset your password</h2>
+          <p style="color:#374151">Hi ${user.username},</p>
+          <p style="color:#374151">We received a request to reset your WordChord password. Click the button below — the link expires in 1 hour.</p>
+          <a href="${resetUrl}" style="display:inline-block;background:#fbbf24;color:#111827;font-weight:700;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0">Reset Password</a>
+          <p style="color:#6b7280;font-size:13px">If you didn't request this, you can safely ignore this email.</p>
+          <p style="color:#9ca3af;font-size:12px">${resetUrl}</p>
+        </div>`;
+    await this.sendEmail(user.email, subject, html);
 
     return OK;
   }
@@ -187,7 +208,10 @@ export class AuthService {
         ),
       );
 
-    if (!resetToken) throw new BadRequestException('This reset link is invalid or has expired.');
+    if (!resetToken) {
+      this.logger.warn(`Reset password: invalid or expired token used`);
+      throw new BadRequestException('This reset link is invalid or has expired.');
+    }
 
     await this.db.db
       .update(passwordResetTokens)
@@ -203,6 +227,7 @@ export class AuthService {
 
     if (!user) throw new BadRequestException('User not found');
 
+    this.logger.log(`Reset password: password successfully reset for user=${user.email}`);
     return { token: this.signToken(user.id), user: this.toUserPayload(user) };
   }
 }

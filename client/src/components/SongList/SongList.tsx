@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Plus, Music, Search, Share2, Check, Trash2, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Music, Search, Share2, Check, Trash2, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { Song } from '../../types';
 import { DeletedSong } from '@/hooks/useSongLibrary';
+import { Plus } from 'lucide-react';
 import { useUILanguage } from '@/context/UILanguageContext';
+import { ButtonWithIcon } from '@/components/ButtonWithIcon';
 import type { T } from '@/context/UILanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -172,14 +174,13 @@ export default function SongList({
             {songs.length} {songs.length === 1 ? t.song : t.songs} {t.inYourCollection}
           </p>
         </div>
-        <Button
+        <ButtonWithIcon
           size="sm"
           onClick={() => onNewSong()}
-          className="gap-1.5 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
-        >
-          <Plus className="w-4 h-4" />
-          {t.newSong}
-        </Button>
+          icon={<Plus className="w-4 h-4" />}
+          label={t.newSong}
+          className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
+        />
       </div>
 
       {/* Search */}
@@ -203,13 +204,12 @@ export default function SongList({
           <div className="text-center">
             <h2 className="text-xl font-bold text-foreground mb-1">{t.noSongsTitle}</h2>
             <p className="text-muted-foreground text-sm mb-6">{t.noSongsDesc}</p>
-            <Button
+            <ButtonWithIcon
               onClick={() => onNewSong()}
+              icon={<Plus className="w-4 h-4" />}
+              label={t.createFirstSong}
               className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              {t.createFirstSong}
-            </Button>
+            />
           </div>
         </div>
       ) : filtered.length === 0 ? (

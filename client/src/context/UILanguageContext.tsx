@@ -326,7 +326,7 @@ export const translations = {
     totalSongs: 'סה"כ שירים',
     withChords: 'עם אקורדים',
     recentlyEdited: 'נערך לאחרונה',
-    viewAll: '← הצג הכל',
+    viewAll: 'הצג הכל ←',
     startYourNotebook: 'התחל את פנקס האקורדים שלך על ידי יצירת השיר הראשון',
     // Profile modal
     profileTab: 'פרופיל',

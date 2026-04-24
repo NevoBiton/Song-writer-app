@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -287,7 +287,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
               onClick={onBack}
               className="gap-1 text-muted-foreground h-8 md:h-10 lg:h-12 px-2 lg:px-3 flex-shrink-0 -ml-1"
             >
-              <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />
+              {uiLang === 'he' ? <ArrowRight className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" /> : <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />}
               <span className="hidden sm:inline text-xs md:text-sm lg:text-xl">{t.library}</span>
             </Button>
             <div className="flex-1 min-w-0">
@@ -354,7 +354,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
               onClick={() => setPreviewMode(false)}
               className="gap-1 text-muted-foreground h-8 md:h-10 lg:h-12 px-2 lg:px-4 -ml-1 flex-shrink-0"
             >
-              <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />
+              {uiLang === 'he' ? <ArrowRight className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" /> : <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />}
               <span className="text-xs md:text-base lg:text-xl">{t.editMode}</span>
             </Button>
             <div className="flex-1 min-w-0 text-center">

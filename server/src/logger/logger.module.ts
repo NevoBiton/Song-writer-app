@@ -7,17 +7,23 @@ const LokiTransport = require('winston-loki');
 function buildTransports(): winston.transport[] {
   const isProd = process.env.NODE_ENV === 'production';
 
+  const APP_NAME = 'WordChord';
+
   const transports: winston.transport[] = [
     new winston.transports.Console({
       format: isProd
-        ? winston.format.combine(winston.format.timestamp(), winston.format.json())
+        ? winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.json(),
+            winston.format.label({ label: APP_NAME }),
+          )
         : winston.format.combine(
-            winston.format.timestamp({ format: 'HH:mm:ss' }),
+            winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
             winston.format.colorize(),
             winston.format.printf(({ timestamp, level, message, context, ...meta }) => {
               const ctx = context ? ` [${context}]` : '';
               const extra = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
-              return `${timestamp}${ctx} ${level}: ${message}${extra}`;
+              return `${timestamp} [${APP_NAME}]${ctx} ${level}: ${message}${extra}`;
             }),
           ),
     }),

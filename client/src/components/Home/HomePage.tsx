@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Music, Plus, BookOpen } from 'lucide-react';
 import { Song } from '@/types';
 import { Button } from '@/components/ui/button';
+import { ButtonWithIcon } from '@/components/ButtonWithIcon';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUILanguage } from '@/context/UILanguageContext';
@@ -57,13 +58,12 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
           )}
 
           <div className="flex gap-3 flex-wrap">
-            <Button
+            <ButtonWithIcon
               onClick={onNewSong}
-              className="bg-gray-900 hover:bg-gray-800 text-white font-bold border-0 gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              {t.newSong}
-            </Button>
+              icon={<Plus className="w-4 h-4" />}
+              label={t.newSong}
+              className="bg-gray-900 hover:bg-gray-800 text-white font-bold border-0"
+            />
             <Button
               onClick={() => navigate('/library')}
               variant="outline"
@@ -184,9 +184,12 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
           <div>
             <h3 className="font-semibold text-foreground text-lg mb-1">{t.noSongsTitle}</h3>
             <p className="text-muted-foreground text-sm mb-4">{t.startYourNotebook}</p>
-            <Button onClick={onNewSong} className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0">
-              <Plus className="w-4 h-4 mr-2" /> {t.createFirstSong}
-            </Button>
+            <ButtonWithIcon
+              onClick={onNewSong}
+              icon={<Plus className="w-4 h-4" />}
+              label={t.createFirstSong}
+              className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0"
+            />
           </div>
         </div>
       )}

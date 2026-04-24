@@ -1,10 +1,11 @@
 import { useState, useEffect, ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useNavigationType, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui/dialog';
 import { Label } from './components/ui/label';
 import { Input } from './components/ui/input';
 import { Button } from './components/ui/button';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { toast } from 'sonner';
 import { queryClient } from './lib/queryClient';
 import { Song } from './types';
@@ -47,32 +48,57 @@ function useIsMobile() {
   return isMobile;
 }
 
+function SongEditorRoute({ songs, loading, isMobile, updateSong }: {
+  songs: Song[];
+  loading: boolean;
+  isMobile: boolean;
+  updateSong: (song: Song) => void;
+}) {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const song = songs.find(s => s.id === id) ?? null;
+
+  if (loading && !song) {
+    return (
+      <AppLayout raw>
+        <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+          Loading...
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!song) return <Navigate to="/library" replace />;
+
+  return (
+    <AppLayout activeSong={song} onBackToLibrary={() => navigate('/library')} raw>
+      <SongEditor
+        key={song.id}
+        song={song}
+        onSave={updateSong}
+        onBack={() => navigate('/library')}
+        isMobile={isMobile}
+      />
+    </AppLayout>
+  );
+}
+
 function AuthenticatedApp() {
   const { songs, loading, createSong, deleteSong, duplicateSong, updateSong, deletedSongs, restoreSong, permanentDeleteSong } =
     useSongLibrary();
   const { user } = useAuth();
-  const [activeSong, setActiveSong] = useState<Song | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
-  const navigationType = useNavigationType();
-  const location = useLocation();
 
-  const { t } = useUILanguage();
+  const { t, uiLang } = useUILanguage();
+  const isRtl = uiLang === 'he';
   const displayName = user?.username || user?.email?.split('@')[0] || '';
 
-  // Clear active song when user navigates with browser back/forward
-  useEffect(() => {
-    if (navigationType === 'POP') {
-      setActiveSong(null);
-    }
-  }, [location, navigationType]);
-
   function handleSelectSong(song: Song) {
-    setActiveSong(song);
-    navigate('/library');
+    navigate(`/library/${song.id}`);
   }
 
   function openCreateDialog() {
@@ -87,8 +113,7 @@ function AuthenticatedApp() {
       const song = await createSong(newTitle.trim(), 'en');
       toast.success(t.toastSongCreated.replace('{title}', song.title));
       setShowCreateDialog(false);
-      setActiveSong(song);
-      navigate('/library');
+      navigate(`/library/${song.id}`);
     } finally {
       setCreating(false);
     }
@@ -117,18 +142,8 @@ function AuthenticatedApp() {
     return song;
   }
 
-  function handleSaveSong(song: Song) {
-    updateSong(song);
-    setActiveSong(song);
-  }
-
-  function handleBack() {
-    setActiveSong(null);
-    navigate('/library');
-  }
-
   const layout = (child: React.ReactNode) => (
-    <AppLayout activeSong={activeSong} onBackToLibrary={() => setActiveSong(null)}>
+    <AppLayout>
       {child}
     </AppLayout>
   );
@@ -152,40 +167,31 @@ function AuthenticatedApp() {
         />
         <Route
           path="/library"
-          element={
-            activeSong ? (
-              <AppLayout activeSong={activeSong} onBackToLibrary={() => setActiveSong(null)} raw>
-                <SongEditor
-                  song={activeSong}
-                  onSave={handleSaveSong}
-                  onBack={handleBack}
-                  isMobile={isMobile}
-                />
-              </AppLayout>
-            ) : (
-              layout(
-                <SongList
-                  songs={songs}
-                  loading={loading}
-                  onSelectSong={handleSelectSong}
-                  onNewSong={openCreateDialog}
-                  onDeleteSong={handleDeleteSong}
-                  onDuplicateSong={handleDuplicateSong}
-                  deletedSongs={deletedSongs}
-                  onRestoreSong={handleRestoreSong}
-                  onPermanentDeleteSong={handlePermanentDeleteSong}
-                  isMobile={isMobile}
-                />
-              )
-            )
-          }
+          element={layout(
+            <SongList
+              songs={songs}
+              loading={loading}
+              onSelectSong={handleSelectSong}
+              onNewSong={openCreateDialog}
+              onDeleteSong={handleDeleteSong}
+              onDuplicateSong={handleDuplicateSong}
+              deletedSongs={deletedSongs}
+              onRestoreSong={handleRestoreSong}
+              onPermanentDeleteSong={handlePermanentDeleteSong}
+              isMobile={isMobile}
+            />
+          )}
+        />
+        <Route
+          path="/library/:id"
+          element={<SongEditorRoute songs={songs} loading={loading} isMobile={isMobile} updateSong={updateSong} />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-sm" dir={isRtl ? 'rtl' : 'ltr'}>
+          <DialogHeader className={isRtl ? 'text-right' : ''}>
             <DialogTitle>{t.newSong}</DialogTitle>
           </DialogHeader>
           <div className="py-2">
@@ -202,7 +208,7 @@ function AuthenticatedApp() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-3">
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>{t.cancel}</Button>
             <Button
               onClick={handleCreateSong}
@@ -251,6 +257,7 @@ export default function App() {
           </GoogleOAuthWrapper>
         </UILanguageProvider>
       </ThemeProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 }
