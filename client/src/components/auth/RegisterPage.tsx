@@ -23,6 +23,8 @@ export default function RegisterPage() {
   const { register, loginWithGoogle } = useAuth();
   const { t, uiLang } = useUILanguage();
 
+  console.log('asd')
+
   const passwordError = password ? (PW_RE.test(password) ? '' : t.toastPasswordMinLength) : '';
   const confirmError = confirm ? (confirm === password ? '' : t.toastPasswordsDoNotMatch) : '';
   const canSubmit = !loading && !!email && !!username && PW_RE.test(password) && password === confirm;
