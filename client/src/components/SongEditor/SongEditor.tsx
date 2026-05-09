@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, Copy } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -123,6 +123,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     updateSectionType,
     addSection,
     removeSection,
+    duplicateSection,
     setLyrics,
     updateTitle,
     updateArtist,
@@ -131,6 +132,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     updateLanguage,
     transpose,
     reorderSections,
+    updateRecentChords,
   } = useSong(initialSong, onSave);
 
   const sensors = useSensors(
@@ -237,13 +239,20 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
 
   function handleRecentChordsChange(chords: string[]) {
     setRecentChords(chords);
+    updateRecentChords(chords);
     api.patch(`/songs/${song.id}/recent-chords`, { chords }).catch(() => {});
   }
 
   function handleChordRemove(chord: string) {
     if (!pickerTarget) return;
     removeChordFromToken(pickerTarget.sectionId, pickerTarget.lineId, pickerTarget.tokenId, chord);
-    setPickerTarget(pt => pt ? { ...pt, currentChords: pt.currentChords.filter(c => c !== chord) } : null);
+    setPickerTarget(pt => {
+      if (!pt) return null;
+      const arr = [...pt.currentChords];
+      const idx = arr.indexOf(chord);
+      if (idx !== -1) arr.splice(idx, 1);
+      return { ...pt, currentChords: arr };
+    });
   }
 
   function exportChordPro(): string {
@@ -512,6 +521,14 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                 {t.copyChordPro}
               </Button>
             </div>
+            {song.createdAt && (
+              <div>
+                <label className="text-gray-500 text-xs block mb-1">{t.createdLabel}</label>
+                <span className="text-muted-foreground text-xs">
+                  {new Date(song.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -551,6 +568,14 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                         className="text-muted-foreground text-sm md:text-base lg:text-2xl bg-transparent border-none shadow-none focus-visible:ring-0 flex-1 h-auto px-1 py-0"
                         placeholder={t.labelPlaceholder}
                       />
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => duplicateSection(section.id)}
+                        className="text-muted-foreground hover:text-amber-500 text-xs md:text-sm lg:text-base px-1 md:px-2 lg:px-3 h-auto"
+                        title={t.duplicateSection}
+                      >
+                        <Copy className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                      </Button>
                       {song.sections.length > 1 && (
                         <Button
                           variant="ghost" size="sm"

@@ -54,8 +54,8 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
   }, [isOpen]);
 
   const isAtMax = currentChords.length >= MAX_CHORDS;
-  const isSlashChord = /^[A-G][#b]?[a-zA-Z0-9]*\/[A-G][#b]?$/.test(query.trim());
-  const searchResults = query ? searchChords(query) : [];
+  const trimmedQuery = query.trim();
+  const searchResults = trimmedQuery ? searchChords(trimmedQuery) : [];
 
   function handleSelect(chord: string) {
     if (isAtMax) return;
@@ -129,9 +129,9 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
             {t.currentChordsLabel} ({currentChords.length}/{MAX_CHORDS})
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {currentChords.map((chord) => (
+            {currentChords.map((chord, i) => (
               <span
-                key={chord}
+                key={i}
                 className="inline-flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm md:text-base font-mono font-bold border border-amber-300 dark:border-amber-700"
               >
                 {chord}
@@ -165,10 +165,12 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
               ref={searchRef}
               type="text"
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              onChange={e => setQuery(e.target.value.slice(0, 7))}
+              onKeyDown={e => { if (e.key === 'Enter' && trimmedQuery && !isAtMax) handleSelect(trimmedQuery); }}
               placeholder={t.chordSearchPlaceholder}
-              className="focus-visible:ring-amber-400 h-10 md:h-12 text-base md:text-lg"
+              className="focus-visible:ring-amber-400 h-10 md:h-12 text-base md:text-lg font-mono"
               disabled={isAtMax}
+              maxLength={7}
             />
           </div>
         )}
@@ -181,29 +183,22 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
             </p>
             <div className="grid grid-cols-2 gap-3 md:gap-4">
               {level2Chords.map(chord => {
-                const alreadyAdded = currentChords.includes(chord);
                 const isFav = favorites.includes(chord);
                 return (
                   <button
                     key={chord}
-                    onClick={() => !alreadyAdded && handleSelect(chord)}
-                    disabled={isAtMax && !alreadyAdded}
-                    className={`relative flex items-center justify-center py-6 md:py-8 text-2xl md:text-3xl font-mono font-bold rounded-2xl border-2 transition-all
-                      ${alreadyAdded
-                        ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-600 cursor-default'
-                        : 'border-border bg-card hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50/50 dark:hover:bg-amber-900/10 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed'
-                      }`}
+                    onClick={() => handleSelect(chord)}
+                    disabled={isAtMax}
+                    className="relative flex items-center justify-center py-6 md:py-8 text-2xl md:text-3xl font-mono font-bold rounded-2xl border-2 transition-all border-border bg-card hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50/50 dark:hover:bg-amber-900/10 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {chord}
-                    {!alreadyAdded && (
-                      <button
-                        onClick={e => toggleFavorite(chord, e)}
-                        className="absolute top-1.5 right-1.5 text-xl opacity-40 hover:opacity-100 transition-opacity"
-                        aria-label={isFav ? 'Unfavorite' : 'Favorite'}
-                      >
-                        {isFav ? '★' : '☆'}
-                      </button>
-                    )}
+                    <button
+                      onClick={e => toggleFavorite(chord, e)}
+                      className="absolute top-1.5 right-1.5 text-xl opacity-40 hover:opacity-100 transition-opacity"
+                      aria-label={isFav ? 'Unfavorite' : 'Favorite'}
+                    >
+                      {isFav ? '★' : '☆'}
+                    </button>
                   </button>
                 );
               })}
@@ -214,41 +209,32 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
         {/* ── SEARCH RESULTS ─────────────────────────────────────── */}
         {!rootFilter && query && (
           <div className="flex-1 overflow-y-auto px-2 md:px-3 pb-2">
-            {isSlashChord && !isAtMax && (
+            {trimmedQuery && !isAtMax && (
               <button
-                onClick={() => handleSelect(query.trim())}
-                className="w-full mb-2 flex items-center justify-center py-3 md:py-4 text-base md:text-xl font-mono font-bold rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-700 hover:bg-amber-100 transition-colors"
+                onClick={() => handleSelect(trimmedQuery)}
+                className="w-full mb-2 flex items-center justify-center py-3 md:py-4 text-base md:text-xl font-mono font-bold rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
               >
-                Use &ldquo;{query.trim()}&rdquo;
+                {t.useChord} &ldquo;{trimmedQuery}&rdquo;
               </button>
             )}
             <div className="grid grid-cols-3 gap-1.5 md:gap-2">
-              {searchResults.map(chord => {
-                const alreadyAdded = currentChords.includes(chord);
-                return (
+              {searchResults.map(chord => (
+                <button
+                  key={chord}
+                  onClick={() => handleSelect(chord)}
+                  disabled={isAtMax}
+                  className="relative flex items-center justify-center px-1 py-3 md:py-4 text-base md:text-xl font-mono rounded-xl border transition-colors border-border bg-card hover:border-amber-400 hover:text-amber-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <span>{chord}</span>
                   <button
-                    key={chord}
-                    onClick={() => !alreadyAdded && handleSelect(chord)}
-                    disabled={isAtMax && !alreadyAdded}
-                    className={`relative flex items-center justify-center px-1 py-3 md:py-4 text-base md:text-xl font-mono rounded-xl border transition-colors
-                      ${alreadyAdded
-                        ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-600 cursor-default'
-                        : 'border-border bg-card hover:border-amber-400 hover:text-amber-600 disabled:opacity-40 disabled:cursor-not-allowed'
-                      }`}
+                    onClick={e => toggleFavorite(chord, e)}
+                    className="absolute top-0.5 right-0.5 text-base opacity-40 hover:opacity-100 transition-opacity"
+                    aria-label={favorites.includes(chord) ? 'Unfavorite' : 'Favorite'}
                   >
-                    <span>{chord}</span>
-                    {!alreadyAdded && (
-                      <button
-                        onClick={e => toggleFavorite(chord, e)}
-                        className="absolute top-0.5 right-0.5 text-base opacity-40 hover:opacity-100 transition-opacity"
-                        aria-label={favorites.includes(chord) ? 'Unfavorite' : 'Favorite'}
-                      >
-                        {favorites.includes(chord) ? '★' : '☆'}
-                      </button>
-                    )}
+                    {favorites.includes(chord) ? '★' : '☆'}
                   </button>
-                );
-              })}
+                </button>
+              ))}
             </div>
             {searchResults.length === 0 && (
               <p className="text-muted-foreground text-sm md:text-base text-center py-6">{t.noChordsFound}</p>
@@ -267,7 +253,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                     <div key={chord} className="relative">
                       <button
                         onClick={() => handleSelect(chord)}
-                        disabled={isAtMax || currentChords.includes(chord)}
+                        disabled={isAtMax}
                         className="w-full flex items-center justify-center py-2.5 text-base md:text-lg font-mono font-bold text-amber-600 rounded-xl border border-border hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         {chord}
@@ -295,7 +281,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
                       size="sm"
                       variant="outline"
                       onClick={() => handleSelect(chord)}
-                      disabled={isAtMax || currentChords.includes(chord)}
+                      disabled={isAtMax}
                       className="px-3 md:px-4 h-auto py-1.5 md:py-2 text-base md:text-xl font-mono text-yellow-600 hover:border-yellow-400"
                     >
                       {chord}

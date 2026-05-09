@@ -43,6 +43,13 @@ function timeAgo(iso: string | undefined, t: T): string {
   return `${days}${t.dAgo}`;
 }
 
+function formatDate(iso: string | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 function daysUntilExpiry(iso: string): number {
   const d = new Date(iso);
   const daysLeft = 30 - Math.floor((Date.now() - d.getTime()) / 86400000);
@@ -264,7 +271,12 @@ export default function SongList({
                 )}
 
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                  <span className="text-muted-foreground text-xs">{timeAgo(song.updatedAt, t)}</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-muted-foreground text-xs">{timeAgo(song.updatedAt, t)}</span>
+                    {song.createdAt && (
+                      <span className="text-muted-foreground/60 text-[10px]">{t.createdLabel} {formatDate(song.createdAt)}</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-xs">
                       {song.sections.length} {song.sections.length === 1 ? t.section : t.sections}
