@@ -272,9 +272,8 @@ export default function SongList({
 
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-muted-foreground text-xs">{timeAgo(song.updatedAt, t)}</span>
                     {song.createdAt && (
-                      <span className="text-muted-foreground/60 text-[10px]">{t.createdLabel} {formatDate(song.createdAt)}</span>
+                      <span className="text-muted-foreground text-xs">{t.createdLabel} {formatDate(song.createdAt)}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
