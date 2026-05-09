@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, Copy } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, CopyPlus, Clipboard } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -28,6 +28,9 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useUILanguage } from '@/context/UILanguageContext';
 import type { T } from '@/context/UILanguageContext';
 import api from '@/lib/api';
@@ -158,6 +161,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   const [autoScroll, setAutoScroll] = useState(false);
   const [fontSize, setFontSize] = useState(18);
   const [shareCopied, setShareCopied] = useState(false);
+  const [clipboardCopied, setClipboardCopied] = useState(false);
   const [showHowTo, setShowHowTo] = useState(() => localStorage.getItem('howto-dismissed') !== '1');
   const [recentChords, setRecentChords] = useState<string[]>(initialSong.recentChords || []);
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
@@ -195,7 +199,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     }
   }, [editText]);
 
-  const shareSong = useCallback(() => {
+  function buildSongText(): string {
     const lines: string[] = [`🎵 ${song.title}${song.artist ? ` — ${song.artist}` : ''}`, ''];
     for (const section of song.sections) {
       if (section.label) lines.push(`[ ${section.label} ]`);
@@ -207,7 +211,35 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
       }
       lines.push('');
     }
+    return lines.join('\n');
+  }
+
+  const copyToClipboard = useCallback(() => {
+    const lines: string[] = [`🎵 ${song.title}${song.artist ? ` — ${song.artist}` : ''}`, ''];
+    for (const section of song.sections) {
+      if (section.label) lines.push(`[ ${section.label} ]`);
+      for (const line of section.lines) {
+        const lyricLine = line.tokens.map(t => t.text).join('');
+        if (lyricLine.trim()) lines.push(lyricLine);
+      }
+      lines.push('');
+    }
     navigator.clipboard.writeText(lines.join('\n'));
+    setClipboardCopied(true);
+    setTimeout(() => setClipboardCopied(false), 2500);
+  }, [song]);
+
+  const shareSong = useCallback(async () => {
+    const text = buildSongText();
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: song.title, text });
+        return;
+      } catch {
+        // user cancelled or share failed — fall through to clipboard
+      }
+    }
+    navigator.clipboard.writeText(text);
     setShareCopied(true);
     setTimeout(() => setShareCopied(false), 2500);
   }, [song]);
@@ -333,14 +365,32 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
             >
               <Settings className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />
             </Button>
-            <Button
-              variant="ghost" size="icon" onClick={shareSong}
-              title={t.copyToClipboard} className="text-muted-foreground h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12"
-            >
-              {shareCopied
-                ? <Check className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7 text-green-500" />
-                : <Share2 className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost" size="icon" onClick={copyToClipboard}
+                  className="text-muted-foreground h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12"
+                >
+                  {clipboardCopied
+                    ? <Check className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7 text-green-500" />
+                    : <Clipboard className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{t.copyToClipboard}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost" size="icon" onClick={shareSong}
+                  className="text-muted-foreground h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12"
+                >
+                  {shareCopied
+                    ? <Check className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7 text-green-500" />
+                    : <Share2 className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{t.shareSong}</TooltipContent>
+            </Tooltip>
             <div className="flex-1" />
             <Button
               onClick={() => setPreviewMode(true)}
@@ -574,7 +624,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                         className="text-muted-foreground hover:text-amber-500 text-xs md:text-sm lg:text-base px-1 md:px-2 lg:px-3 h-auto"
                         title={t.duplicateSection}
                       >
-                        <Copy className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        <CopyPlus className="w-3.5 h-3.5 md:w-4 md:h-4" />
                       </Button>
                       {song.sections.length > 1 && (
                         <Button

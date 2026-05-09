@@ -56,6 +56,7 @@ export const translations = {
     view: 'View',
     songSettings: 'Song settings',
     copyToClipboard: 'Copy song to clipboard',
+    shareSong: 'Share song',
     displayOptions: 'Display options',
     editMode: 'Edit',
     // Settings panel
@@ -271,6 +272,7 @@ export const translations = {
     view: 'תצוגה',
     songSettings: 'הגדרות שיר',
     copyToClipboard: 'העתק שיר ללוח',
+    shareSong: 'שתף שיר',
     displayOptions: 'אפשרויות תצוגה',
     editMode: 'עריכה',
     // Settings panel

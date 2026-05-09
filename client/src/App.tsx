@@ -24,6 +24,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { UILanguageProvider, useUILanguage } from './context/UILanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from './components/ui/sonner';
+import { TooltipProvider } from './components/ui/tooltip';
 
 function GoogleOAuthWrapper({ children }: { children: ReactNode }) {
   const { uiLang } = useUILanguage();
@@ -250,6 +251,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <UILanguageProvider>
+          <TooltipProvider delayDuration={400}>
           <GoogleOAuthWrapper>
             <BrowserRouter>
               <AuthProvider>
@@ -258,6 +260,7 @@ export default function App() {
               </AuthProvider>
             </BrowserRouter>
           </GoogleOAuthWrapper>
+          </TooltipProvider>
         </UILanguageProvider>
       </ThemeProvider>
       <ReactQueryDevtools initialIsOpen={false} />
