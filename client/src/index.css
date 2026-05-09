@@ -110,6 +110,11 @@
     .dark .word-token:hover .token-word {
       @apply bg-amber-900/30;
     }
+
+    .section-lyrics-area:hover {
+      border-color: hsl(var(--border));
+      background-color: hsl(var(--accent));
+    }
   }
 
   .word-token.is-readonly {

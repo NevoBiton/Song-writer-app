@@ -673,7 +673,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                     ) : (
                       <>
                         <div
-                          className={`px-1 ${!previewMode ? 'rounded-xl border border-transparent hover:border-border hover:bg-accent' : ''}`}
+                          className={`px-1 ${!previewMode ? 'rounded-xl border border-transparent section-lyrics-area' : ''}`}
                         >
                           {section.lines.map(line => (
                             <ChordLine
