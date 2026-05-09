@@ -56,6 +56,7 @@ export const translations = {
     view: 'View',
     songSettings: 'Song settings',
     copyToClipboard: 'Copy song to clipboard',
+    shareSong: 'Share song',
     displayOptions: 'Display options',
     editMode: 'Edit',
     // Settings panel
@@ -76,6 +77,8 @@ export const translations = {
     // Section editor
     labelPlaceholder: 'Label...',
     removeSectionTitle: 'Remove section',
+    duplicateSection: 'Duplicate section',
+    createdLabel: 'Created',
     addLyricsBtn: 'Add lyrics',
     tapToType: 'Tap to type your song words',
     editLyrics: 'Edit lyrics',
@@ -112,7 +115,8 @@ export const translations = {
     pickAChord: 'Pick a Chord',
     currentChordsLabel: 'Current chords',
     maxChordsReached: 'Maximum 5 chords reached — remove one to add another',
-    chordSearchPlaceholder: 'Search or type slash chord (C/E)...',
+    chordSearchPlaceholder: 'Search or type a custom chord...',
+    useChord: 'Use',
     recentChords: 'Recent',
     favoritesLabel: 'Favorites',
     pickRootNote: 'Pick a root note',
@@ -268,6 +272,7 @@ export const translations = {
     view: 'תצוגה',
     songSettings: 'הגדרות שיר',
     copyToClipboard: 'העתק שיר ללוח',
+    shareSong: 'שתף שיר',
     displayOptions: 'אפשרויות תצוגה',
     editMode: 'עריכה',
     // Settings panel
@@ -288,6 +293,8 @@ export const translations = {
     // Section editor
     labelPlaceholder: 'תווית...',
     removeSectionTitle: 'הסר קטע',
+    duplicateSection: 'שכפל קטע',
+    createdLabel: 'נוצר',
     addLyricsBtn: 'הוסף מילים',
     tapToType: 'לחץ לכתוב מילות השיר',
     editLyrics: 'עריכת מילים',
@@ -324,7 +331,8 @@ export const translations = {
     pickAChord: 'בחר אקורד',
     currentChordsLabel: 'אקורדים נוכחיים',
     maxChordsReached: 'הגעת ל-5 אקורדים — הסר אחד כדי להוסיף',
-    chordSearchPlaceholder: 'חפש אקורד...',
+    chordSearchPlaceholder: 'חפש או הקלד אקורד מותאם...',
+    useChord: 'השתמש',
     recentChords: 'אחרונים',
     favoritesLabel: 'מועדפים',
     pickRootNote: 'בחר שורש',

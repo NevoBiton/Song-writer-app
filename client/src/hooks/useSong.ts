@@ -97,7 +97,6 @@ export function useSong(
               tokens: line.tokens.map(token => {
                 if (token.id !== tokenId) return token;
                 const existing = token.chords || [];
-                if (existing.includes(chord)) return token; // already there
                 if (existing.length >= MAX_CHORDS) return token; // max reached
                 return { ...token, chords: [...existing, chord] };
               }),
@@ -119,7 +118,10 @@ export function useSong(
               ...line,
               tokens: line.tokens.map(token => {
                 if (token.id !== tokenId) return token;
-                const remaining = (token.chords || []).filter(c => c !== chord);
+                const arr = [...(token.chords || [])];
+                const idx = arr.indexOf(chord);
+                if (idx !== -1) arr.splice(idx, 1);
+                const remaining = arr;
                 return { ...token, chords: remaining.length ? remaining : undefined };
               }),
             }
@@ -169,6 +171,24 @@ export function useSong(
       ...song,
       sections: song.sections.filter(sec => sec.id !== sectionId),
     });
+  }, [song]);
+
+  const duplicateSection = useCallback((sectionId: string) => {
+    const section = song.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    const copy: Section = {
+      ...section,
+      id: uid(),
+      lines: section.lines.map(line => ({
+        ...line,
+        id: uid(),
+        tokens: line.tokens.map(token => ({ ...token, id: uid() })),
+      })),
+    };
+    const idx = song.sections.findIndex(s => s.id === sectionId);
+    const next = [...song.sections];
+    next.splice(idx + 1, 0, copy);
+    commit({ ...song, sections: next });
   }, [song]);
 
   const reorderSections = useCallback((fromIndex: number, toIndex: number) => {
@@ -284,6 +304,12 @@ export function useSong(
     commit(transposeSong(song, semitones));
   }, [song]);
 
+  // Updates recentChords in the song state so the next auto-save includes them,
+  // without creating a history entry (uses setSong directly, not commit).
+  const updateRecentChords = useCallback((chords: string[]) => {
+    setSong(prev => ({ ...prev, recentChords: chords }));
+  }, []);
+
   return {
     song,
     undo,
@@ -297,6 +323,7 @@ export function useSong(
     updateSectionType,
     addSection,
     removeSection,
+    duplicateSection,
     setLyrics,
     updateTitle,
     updateArtist,
@@ -305,5 +332,6 @@ export function useSong(
     updateLanguage,
     transpose,
     reorderSections,
+    updateRecentChords,
   };
 }

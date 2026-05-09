@@ -18,8 +18,9 @@ export function apiToSong(data: Record<string, unknown>): Song {
     capo: (data.capo as number) ?? 0,
     language: (data.language as Song['language']) || 'en',
     sections: (data.sections as Song['sections']) || [],
-    createdAt: data.created_at as string,
-    updatedAt: data.updated_at as string,
+    recentChords: (data.recent_chords as string[] | null) || (data.recentChords as string[] | null) || undefined,
+    createdAt: (data.created_at ?? data.createdAt) as string,
+    updatedAt: (data.updated_at ?? data.updatedAt) as string,
   };
 }
 

@@ -94,6 +94,7 @@
 
   .word-token {
     @apply inline-flex flex-col items-start cursor-pointer select-none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .token-word {
