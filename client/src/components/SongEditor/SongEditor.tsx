@@ -151,8 +151,8 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   }
 
   const { t, uiLang } = useUILanguage();
-  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
+  const [isEditingLyrics, setIsEditingLyrics] = useState(false);
+  const [editTexts, setEditTexts] = useState<Record<string, string>>({});
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [showChords, setShowChords] = useState(true);
@@ -165,7 +165,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   const [showHowTo, setShowHowTo] = useState(() => localStorage.getItem('howto-dismissed') !== '1');
   const [recentChords, setRecentChords] = useState<string[]>(initialSong.recentChords || []);
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const firstTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const hasLyrics = song.sections.some(s => s.lines.some(l => l.tokens.some(t => !t.isSpace && t.text.trim())));
   const hasChords = song.sections.some(s => s.lines.some(l => l.tokens.some(t => t.chords?.length)));
@@ -193,11 +193,10 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   }, [undo, redo]);
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    if (isEditingLyrics) {
+      firstTextareaRef.current?.focus();
     }
-  }, [editText]);
+  }, [isEditingLyrics]);
 
   function buildSongText(): string {
     const lines: string[] = [`🎵 ${song.title}${song.artist ? ` — ${song.artist}` : ''}`, ''];
@@ -250,14 +249,20 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     setTimeout(() => setShareCopied(false), 2500);
   }, [song]);
 
-  function startEditSection(section: Section) {
-    setEditingSectionId(section.id);
-    setEditText(sectionToPlainText(section.lines));
+  function startEditAllSections() {
+    const texts: Record<string, string> = {};
+    song.sections.forEach(s => { texts[s.id] = sectionToPlainText(s.lines); });
+    setEditTexts(texts);
+    setIsEditingLyrics(true);
   }
 
-  function finishEdit(sectionId: string) {
-    setLyrics(sectionId, editText);
-    setEditingSectionId(null);
+  function finishSectionEdit(sectionId: string, text: string) {
+    setLyrics(sectionId, text);
+  }
+
+  function finishAllEdits() {
+    setIsEditingLyrics(false);
+    setEditTexts({});
   }
 
   function handleTokenClick(sectionId: string, lineId: string, tokenId: string) {
@@ -320,6 +325,14 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-background">
+
+      {/* Backdrop — closes lyrics edit on tap-outside */}
+      {isEditingLyrics && (
+        <div
+          className="fixed inset-0 z-10"
+          onClick={finishAllEdits}
+        />
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════
           EDIT MODE TOOLBAR
@@ -676,25 +689,32 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                 </div>
 
                 {/* Section content */}
-                {!previewMode && editingSectionId === section.id ? (
-                  <Textarea
-                    ref={editingSectionId === section.id ? textareaRef : undefined}
-                    value={editText}
-                    onChange={e => setEditText(e.target.value)}
-                    onBlur={() => finishEdit(section.id)}
-                    autoFocus
-                    dir={song.language === 'he' ? 'rtl' : 'auto'}
-                    rows={6}
-                    className="w-full rounded-xl px-3 py-2.5 text-base md:text-xl border-2 border-amber-400 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none min-h-[140px] md:min-h-[200px] leading-relaxed overflow-hidden font-song"
-                    placeholder={song.language === 'he' ? 'הקלד מילות השיר כאן...' : 'Type your lyrics here, one line per line...'}
-                    style={{ height: 'auto' }}
-                  />
+                {!previewMode && isEditingLyrics ? (
+                  <div className="relative z-20">
+                    <Textarea
+                      ref={song.sections[0]?.id === section.id ? firstTextareaRef : undefined}
+                      value={editTexts[section.id] ?? ''}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setEditTexts(prev => ({ ...prev, [section.id]: val }));
+                        const el = e.target;
+                        el.style.height = 'auto';
+                        el.style.height = `${el.scrollHeight}px`;
+                      }}
+                      onBlur={e => finishSectionEdit(section.id, e.target.value)}
+                      dir={song.language === 'he' ? 'rtl' : 'auto'}
+                      rows={6}
+                      className="w-full rounded-xl px-3 py-2.5 text-base md:text-xl border-2 border-amber-400 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none min-h-[140px] md:min-h-[200px] leading-relaxed overflow-hidden font-song"
+                      placeholder={song.language === 'he' ? 'הקלד מילות השיר כאן...' : 'Type your lyrics here, one line per line...'}
+                      style={{ height: 'auto' }}
+                    />
+                  </div>
                 ) : (
                   <div className="rounded-xl">
                     {section.lines.length === 0 && !previewMode ? (
                       <Button
                         variant="outline"
-                        onClick={() => startEditSection(section)}
+                        onClick={() => startEditAllSections()}
                         className="w-full border-2 border-dashed border-border hover:border-amber-400 rounded-xl py-5 h-auto flex-col gap-1 transition-colors group"
                       >
                         <div className="text-2xl md:text-4xl">✍️</div>
@@ -735,29 +755,15 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
       {!previewMode && (
         <div className={`fixed bottom-5 z-30 flex items-center gap-2 ${uiLang === 'he' ? 'right-4' : 'left-4'}`}>
 
-          {/* Edit lyrics — pick a section */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="gap-1.5 bg-card shadow-md border-border hover:border-amber-400 hover:text-amber-600 text-muted-foreground h-9 md:h-11 lg:h-14 px-3 md:px-4 lg:px-6 text-sm md:text-base lg:text-xl"
-              >
-                <Edit3 className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-6 lg:h-6" />
-                {t.editLyrics}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" side="top" className="w-44 md:w-52">
-              {song.sections.map(sec => (
-                <DropdownMenuItem
-                  key={sec.id}
-                  onClick={() => startEditSection(sec)}
-                  className={`capitalize font-medium md:text-base md:py-2 lg:text-xl lg:py-3 ${SECTION_MENU_COLORS[sec.type]}`}
-                >
-                  {sec.label || sectionTypeLabel(sec.type, t)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Edit lyrics */}
+          <Button
+            variant="outline"
+            onClick={startEditAllSections}
+            className="gap-1.5 bg-card shadow-md border-border hover:border-amber-400 hover:text-amber-600 text-muted-foreground h-9 md:h-11 lg:h-14 px-3 md:px-4 lg:px-6 text-sm md:text-base lg:text-xl"
+          >
+            <Edit3 className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-6 lg:h-6" />
+            {t.editLyrics}
+          </Button>
 
           {/* Add section */}
           <DropdownMenu>
