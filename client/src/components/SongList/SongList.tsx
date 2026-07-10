@@ -97,7 +97,7 @@ export default function SongList({
   onRestoreSong,
   onPermanentDeleteSong,
 }: Props) {
-  const { t, uiLang } = useUILanguage();
+  const { t } = useUILanguage();
   const [query, setQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<{ songId: string; x: number; y: number } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);

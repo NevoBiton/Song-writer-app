@@ -298,28 +298,6 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     });
   }
 
-  function exportChordPro(): string {
-    const lines: string[] = [];
-    lines.push(`{title: ${song.title}}`);
-    if (song.artist) lines.push(`{artist: ${song.artist}}`);
-    if (song.key) lines.push(`{key: ${song.key}}`);
-    lines.push('');
-    for (const section of song.sections) {
-      const typeMap: Record<Section['type'], [string, string]> = {
-        verse: ['sov', 'eov'], chorus: ['soc', 'eoc'], bridge: ['sob', 'eob'],
-        intro: ['sov', 'eov'], outro: ['sov', 'eov'], custom: ['sov', 'eov'],
-      };
-      const [start, end] = typeMap[section.type];
-      lines.push(`{${start}}`);
-      if (section.label) lines.push(`{c: ${section.label}}`);
-      for (const line of section.lines) {
-        lines.push(line.tokens.map(t => `${(t.chords || []).map(c => `[${c}]`).join('')}${t.text}`).join(''));
-      }
-      lines.push(`{${end}}`);
-      lines.push('');
-    }
-    return lines.join('\n');
-  }
 
   const allKeys = getAllKeys();
 
