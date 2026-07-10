@@ -166,3 +166,50 @@
     margin-bottom: 3px;
   }
 }
+
+/* ── Print / PDF export ─────────────────────────────────────── */
+.print-only { display: none; }
+
+@page {
+  margin: 0;
+}
+
+@media print {
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Remove height/overflow constraints so full content renders */
+  html, body, #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Hide UI chrome */
+  .no-print { display: none !important; }
+
+  /* Reveal print-only elements (title header) */
+  .print-only { display: flex !important; }
+
+  /* Allow the song content area to expand to full height */
+  .song-print-area {
+    overflow: visible !important;
+    height: auto !important;
+    flex: none !important;
+  }
+
+  /* Avoid splitting a section across pages, and add breathing room at top of new pages */
+  .song-print-area .mb-8 {
+    break-inside: avoid;
+    padding-top: 6mm;
+  }
+
+  /* Honour the view-mode font size slider */
+  .chord-text {
+    font-size: var(--song-chord-font-size, 0.875rem) !important;
+  }
+  .token-word {
+    font-size: var(--song-font-size, 1.25rem) !important;
+  }
+}

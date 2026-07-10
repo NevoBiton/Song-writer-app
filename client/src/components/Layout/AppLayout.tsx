@@ -52,7 +52,7 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Navbar */}
-      <header className="bg-card border-b border-border sticky top-0 z-40 shadow-sm">
+      <header className="no-print bg-card border-b border-border sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             {/* Logo */}
@@ -178,7 +178,7 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
       </header>
 
       {/* Yellow accent bar */}
-      <div className="h-0.5 bg-amber-400 w-full" />
+      <div className="no-print h-0.5 bg-amber-400 w-full" />
 
       {/* Main content */}
       {raw ? (

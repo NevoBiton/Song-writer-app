@@ -36,11 +36,11 @@ function timeAgo(iso: string | undefined, t: T): string {
   const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return t.justNow;
-  if (mins < 60) return `${mins}${t.mAgo}`;
+  if (mins < 60) return `${t.timeAgoPrefix}${mins}${t.mAgo}`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}${t.hAgo}`;
+  if (hrs < 24) return `${t.timeAgoPrefix}${hrs}${t.hAgo}`;
   const days = Math.floor(hrs / 24);
-  return `${days}${t.dAgo}`;
+  return `${t.timeAgoPrefix}${days}${t.dAgo}`;
 }
 
 function formatDate(iso: string | undefined): string {
@@ -273,7 +273,7 @@ export default function SongList({
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                   <div className="flex flex-col gap-0.5">
                     {song.createdAt && (
-                      <span className="text-muted-foreground text-xs">{t.createdLabel} {formatDate(song.createdAt)}</span>
+                      <span className="text-muted-foreground text-xs" dir="ltr">{t.createdLabel} {formatDate(song.createdAt)}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
