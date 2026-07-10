@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, CopyPlus, Clipboard } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, CopyPlus, Clipboard, FileDown, Music2 } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -229,6 +229,12 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     setTimeout(() => setClipboardCopied(false), 2500);
   }, [song]);
 
+  const handleExportPDF = useCallback(() => {
+    setPreviewMode(true);
+    setShowSettings(false);
+    setTimeout(() => window.print(), 150);
+  }, []);
+
   const shareSong = useCallback(async () => {
     const text = buildSongText();
     if (navigator.share) {
@@ -391,6 +397,17 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
               </TooltipTrigger>
               <TooltipContent side="bottom">{t.shareSong}</TooltipContent>
             </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost" size="icon" onClick={handleExportPDF}
+                  className="text-muted-foreground h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12"
+                >
+                  <FileDown className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{t.exportPdf}</TooltipContent>
+            </Tooltip>
             <div className="flex-1" />
             <Button
               onClick={() => setPreviewMode(true)}
@@ -406,7 +423,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
           VIEW MODE TOOLBAR — clean, minimal
       ════════════════════════════════════════════════════════════════ */}
       {previewMode && (
-        <div className="bg-card border-b border-border flex-shrink-0 shadow-sm">
+        <div className="no-print bg-card border-b border-border flex-shrink-0 shadow-sm">
           <div className="flex items-center gap-2 px-3 h-12 md:h-16 lg:h-20">
             <Button
               variant="ghost" size="sm"
@@ -550,7 +567,6 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                 <SelectContent>
                   <SelectItem value="en">{t.langEnglish}</SelectItem>
                   <SelectItem value="he">{t.langHebrew}</SelectItem>
-                  <SelectItem value="mixed">{t.langMixed}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -565,10 +581,11 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
               <label className="text-gray-500 text-xs block mb-1">{t.exportLabel}</label>
               <Button
                 variant="outline" size="sm"
-                onClick={() => navigator.clipboard.writeText(exportChordPro())}
-                className="h-8 text-xs"
+                onClick={handleExportPDF}
+                className="h-8 text-xs gap-1"
               >
-                {t.copyChordPro}
+                <FileDown className="w-3 h-3" />
+                {t.exportPdf}
               </Button>
             </div>
             {song.createdAt && (
@@ -585,12 +602,26 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
 
       {/* ── Main content ─────────────────────────────────────────────── */}
       <div
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto song-print-area"
         style={previewMode ? {
           '--song-font-size': `${fontSize}px`,
           '--song-chord-font-size': `${Math.round(fontSize * 0.65)}px`,
         } as React.CSSProperties : undefined}
       >
+        {/* Print-only header */}
+        <div className="print-only px-4 pt-6 pb-3 border-b border-border flex items-start justify-between gap-4" dir={uiLang === 'he' ? 'rtl' : 'ltr'}>
+          <div className={uiLang === 'he' ? 'text-right' : 'text-left'}>
+            <h1 className="font-bold text-2xl font-song">{song.title || t.untitled}</h1>
+            {song.artist && <p className="text-muted-foreground text-base mt-0.5">{song.artist}</p>}
+            {song.key && <p className="text-sm text-muted-foreground mt-1">{t.keyLabel}: {song.key}{song.capo ? ` · Capo ${song.capo}` : ''}</p>}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center">
+              <Music2 className="w-6 h-6 text-gray-900" />
+            </div>
+            <span className="font-bold text-xl tracking-tight">{t.appName}</span>
+          </div>
+        </div>
         <div className="min-h-full flex flex-col">
           <div className="flex-1 px-4 py-4 pb-20">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

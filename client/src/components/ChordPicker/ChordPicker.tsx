@@ -168,6 +168,7 @@ export default function ChordPicker({ isOpen, onClose, onSelect, onRemoveChord, 
               onChange={e => setQuery(e.target.value.slice(0, 7))}
               onKeyDown={e => { if (e.key === 'Enter' && trimmedQuery && !isAtMax) handleSelect(trimmedQuery); }}
               placeholder={t.chordSearchPlaceholder}
+              dir="ltr"
               className="focus-visible:ring-amber-400 h-10 md:h-12 text-base md:text-lg font-mono"
               disabled={isAtMax}
               maxLength={7}

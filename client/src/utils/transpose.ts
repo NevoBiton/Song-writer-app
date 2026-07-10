@@ -18,15 +18,12 @@ function noteIndex(note: string): number {
   return fi;
 }
 
-function preferFlats(root: string): boolean {
-  return ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'].includes(root);
-}
 
 function transposeNote(note: string, semitones: number): string {
   const idx = noteIndex(note);
   if (idx < 0) return note;
   const newIdx = ((idx + semitones) % 12 + 12) % 12;
-  const useFlats = preferFlats(note) !== (semitones < 0);
+  const useFlats = semitones < 0;
   return useFlats ? FLAT_NOTES[newIdx] : SHARP_NOTES[newIdx];
 }
 

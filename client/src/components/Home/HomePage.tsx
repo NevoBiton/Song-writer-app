@@ -23,15 +23,15 @@ function timeAgo(iso: string | undefined, t: T): string {
   const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return t.justNow;
-  if (mins < 60) return `${mins}${t.mAgo}`;
+  if (mins < 60) return `${t.timeAgoPrefix}${mins}${t.mAgo}`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}${t.hAgo}`;
-  return `${Math.floor(hrs / 24)}${t.dAgo}`;
+  if (hrs < 24) return `${t.timeAgoPrefix}${hrs}${t.hAgo}`;
+  return `${t.timeAgoPrefix}${Math.floor(hrs / 24)}${t.dAgo}`;
 }
 
 export default function HomePage({ songs, loading, displayName, onSelectSong, onNewSong }: Props) {
   const navigate = useNavigate();
-  const { t } = useUILanguage();
+  const { t, uiLang } = useUILanguage();
   const recent = songs.slice(0, 4);
 
   return (
@@ -168,7 +168,7 @@ export default function HomePage({ songs, loading, displayName, onSelectSong, on
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">{timeAgo(song.updatedAt, t)}</p>
+                <p className="text-xs text-muted-foreground mt-2" dir={uiLang === 'he' ? 'rtl' : 'ltr'}>{timeAgo(song.updatedAt, t)}</p>
               </button>
             ))}
           </div>
