@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, CopyPlus, Clipboard, FileDown, Music2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, CopyPlus, Clipboard, FileDown, Music2, Printer, Loader2 } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -165,7 +166,13 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   const [showHowTo, setShowHowTo] = useState(() => localStorage.getItem('howto-dismissed') !== '1');
   const [recentChords, setRecentChords] = useState<string[]>(initialSong.recentChords || []);
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [pdfFontSize, setPdfFontSize] = useState(18);
+  const [safeBreakPositions, setSafeBreakPositions] = useState<number[]>([]);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const firstTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const pdfContentRef = useRef<HTMLDivElement>(null);
+  const pdfInnerRef = useRef<HTMLDivElement>(null);
 
   const hasLyrics = song.sections.some(s => s.lines.some(l => l.tokens.some(t => !t.isSpace && t.text.trim())));
   const hasChords = song.sections.some(s => s.lines.some(l => l.tokens.some(t => t.chords?.length)));
@@ -198,6 +205,59 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     }
   }, [isEditingLyrics]);
 
+  useEffect(() => {
+    if (pdfPreviewOpen) {
+      document.body.classList.add('pdf-preview-active');
+    } else {
+      document.body.classList.remove('pdf-preview-active');
+    }
+    return () => document.body.classList.remove('pdf-preview-active');
+  }, [pdfPreviewOpen]);
+
+  // Compute page-break positions snapped to element boundaries (never mid-word)
+  useEffect(() => {
+    if (!pdfPreviewOpen) return;
+    const compute = () => {
+      const el = pdfInnerRef.current;
+      if (!el || !el.offsetWidth) return;
+
+      // A4 ratio: 297mm / 210mm ≈ 1.4143
+      const ph = Math.round(1.4143 * el.offsetWidth);
+
+      if (el.scrollHeight <= ph) {
+        setSafeBreakPositions([]);
+        return;
+      }
+
+      // Only snap to whole lyric-row or section boundaries — never inner token/chord spans
+      const candidates: number[] = [0];
+      for (const child of Array.from(el.querySelectorAll('.chord-line-row, .mb-8')) as HTMLElement[]) {
+        candidates.push(child.offsetTop + child.offsetHeight);
+      }
+      candidates.sort((a, b) => a - b);
+
+      const numBreaks = Math.ceil(el.scrollHeight / ph) - 1;
+      const breaks: number[] = [];
+      for (let n = 1; n <= numBreaks; n++) {
+        const target = ph * n;
+        // Snap to the last element bottom edge that fits fully before the target
+        let snap = target;
+        for (const y of candidates) {
+          if (y <= target) snap = y;
+          else break;
+        }
+        breaks.push(snap);
+      }
+
+      setSafeBreakPositions(breaks);
+    };
+
+    requestAnimationFrame(compute);
+    const ro = new ResizeObserver(compute);
+    if (pdfInnerRef.current) ro.observe(pdfInnerRef.current);
+    return () => ro.disconnect();
+  }, [pdfPreviewOpen]);
+
   function buildSongText(): string {
     const lines: string[] = [`🎵 ${song.title}${song.artist ? ` — ${song.artist}` : ''}`, ''];
     for (const section of song.sections) {
@@ -229,10 +289,84 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   }, [song]);
 
   const handleExportPDF = useCallback(() => {
-    setPreviewMode(true);
     setShowSettings(false);
-    setTimeout(() => window.print(), 150);
-  }, []);
+    setPdfFontSize(fontSize);
+    setPdfPreviewOpen(true);
+  }, [fontSize]);
+
+  const generatePDF = useCallback(async () => {
+    const element = pdfInnerRef.current; // capture the white paper content, not the scroll container
+    if (!element) return;
+    setIsGeneratingPDF(true);
+    try {
+      await document.fonts.ready;
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (_doc, el) => {
+          // Hide page-break guide lines from the captured image
+          el.querySelectorAll('.pdf-page-guide').forEach(g => {
+            (g as HTMLElement).style.display = 'none';
+          });
+        },
+      });
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdfW = pdf.internal.pageSize.getWidth();
+      // Scale=2 means each element pixel = 2 canvas pixels
+      const canvasScale = 2;
+      const safeBreaksCanvas = safeBreakPositions.map(y => Math.round(y * canvasScale));
+      const allBreaks = [0, ...safeBreaksCanvas, canvas.height];
+      const topMarginMm = 8; // breathing room at top of pages 2+
+
+      for (let pageIdx = 0; pageIdx < allBreaks.length - 1; pageIdx++) {
+        const srcY = allBreaks[pageIdx];
+        const srcH = allBreaks[pageIdx + 1] - srcY;
+
+        // Draw just this page's slice onto a temporary canvas
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = srcH;
+        const ctx = sliceCanvas.getContext('2d')!;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+
+        const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.92);
+        const sliceHeightMm = (srcH / canvas.width) * pdfW;
+        const yOnPage = pageIdx === 0 ? 0 : topMarginMm;
+
+        if (pageIdx > 0) pdf.addPage();
+        pdf.addImage(sliceData, 'JPEG', 0, yOnPage, pdfW, sliceHeightMm);
+      }
+
+      const filename = `${(song.title || 'song').replace(/[^\w\s-]/g, '').trim() || 'song'}.pdf`;
+      const blob = pdf.output('blob');
+      const file = new File([blob], filename, { type: 'application/pdf' });
+
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: song.title || 'Song' });
+      } else {
+        pdf.save(filename);
+      }
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  }, [song.title, safeBreakPositions]);
 
   const shareSong = useCallback(async () => {
     const text = buildSongText();
@@ -812,6 +946,146 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
         recentlyUsed={recentChords}
         onRecentChordsChange={handleRecentChordsChange}
       />
+
+      {/* ── PDF Preview Portal ────────────────────────────────────────── */}
+      {pdfPreviewOpen && createPortal(
+        <div
+          className="pdf-preview-portal"
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', backgroundColor: '#1e293b' }}
+        >
+          {/* Controls toolbar — dark, PDF-viewer style */}
+          <div
+            className="pdf-preview-controls"
+            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', backgroundColor: '#0f172a', flexShrink: 0 }}
+          >
+            <Button
+              variant="ghost" size="icon"
+              onClick={() => setPdfPreviewOpen(false)}
+              className="h-9 w-9 text-slate-400 hover:text-white flex-shrink-0"
+              title={t.cancel}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+            <span className="text-slate-200 text-sm font-medium truncate flex-1 min-w-0">
+              {song.title || t.untitled}
+            </span>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-slate-400 text-xs select-none">A</span>
+              <Slider
+                min={10} max={32} step={1}
+                value={[pdfFontSize]}
+                onValueChange={([v]) => setPdfFontSize(v)}
+                className="w-24"
+              />
+              <span className="text-slate-200 text-base font-semibold select-none">A</span>
+            </div>
+            <Button
+              onClick={generatePDF}
+              disabled={isGeneratingPDF}
+              className="gap-1.5 bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0 h-9 px-4 text-sm flex-shrink-0 disabled:opacity-70"
+            >
+              {isGeneratingPDF
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Printer className="w-4 h-4" />}
+              {isGeneratingPDF ? '...' : t.exportPdf}
+            </Button>
+          </div>
+
+          {/* Scrollable viewer area — gray bg simulates PDF viewer */}
+          <div
+            ref={pdfContentRef}
+            className="pdf-preview-content flex-1 overflow-y-auto"
+            style={{ padding: '24px 16px', backgroundColor: '#334155' }}
+          >
+            {/* White A4 paper — this is the element captured for PDF */}
+            <div
+              ref={pdfInnerRef}
+              style={{
+                position: 'relative',
+                maxWidth: '794px',
+                margin: '0 auto',
+                backgroundColor: '#ffffff',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+                padding: '48px 56px',
+                '--song-font-size': `${pdfFontSize}px`,
+                '--song-chord-font-size': `${Math.round(pdfFontSize * 0.65)}px`,
+              } as React.CSSProperties}
+            >
+              {/* Page-break guide strips — snapped to element edges, hidden in PDF capture */}
+              {safeBreakPositions.map((yPos, i) => (
+                <div
+                  key={i}
+                  className="pdf-page-guide"
+                  style={{
+                    position: 'absolute',
+                    left: 0, right: 0,
+                    top: `${yPos}px`,
+                    height: '22px',
+                    backgroundColor: 'rgba(100,116,139,0.15)',
+                    borderTop: '1px solid rgba(100,116,139,0.4)',
+                    borderBottom: '1px solid rgba(100,116,139,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '10px',
+                    color: '#64748b',
+                    letterSpacing: '0.08em',
+                    fontFamily: 'system-ui, sans-serif',
+                    pointerEvents: 'none',
+                    zIndex: 5,
+                  }}
+                >
+                  — Page {i + 2} —
+                </div>
+              ))}
+
+              {/* Song header */}
+              <div
+                style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', paddingBottom: '16px', marginBottom: '24px', borderBottom: '1px solid #e2e8f0' }}
+                dir={uiLang === 'he' ? 'rtl' : 'ltr'}
+              >
+                <div style={{ textAlign: uiLang === 'he' ? 'right' : 'left' }}>
+                  <div style={{ fontWeight: 700, fontSize: '1.5rem', lineHeight: 1.2 }}>{song.title || t.untitled}</div>
+                  {song.artist && <div style={{ color: '#64748b', fontSize: '1rem', marginTop: '4px' }}>{song.artist}</div>}
+                  {song.key && <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '4px' }}>{t.keyLabel}: {song.key}{song.capo ? ` · Capo ${song.capo}` : ''}</div>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <div style={{ width: '36px', height: '36px', backgroundColor: '#fbbf24', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Music2 style={{ width: '20px', height: '20px', color: '#111827' }} />
+                  </div>
+                  <span style={{ fontWeight: 700, fontSize: '1rem' }}>{t.appName}</span>
+                </div>
+              </div>
+
+              {/* Sections */}
+              <div>
+                {song.sections.map(section => (
+                  <div key={section.id} className="mb-8">
+                    <div style={{ marginBottom: '8px' }}>
+                      <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${SECTION_BADGE_COLORS[section.type]}`}>
+                        {section.label || sectionTypeLabel(section.type, t)}
+                      </span>
+                    </div>
+                    <div>
+                      {section.lines.map(line => (
+                        <ChordLine
+                          key={line.id}
+                          line={line}
+                          sectionId={section.id}
+                          onTokenClick={() => {}}
+                          showChords={true}
+                          readOnly={true}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
