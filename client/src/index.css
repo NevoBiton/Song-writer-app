@@ -212,4 +212,31 @@
   .token-word {
     font-size: var(--song-font-size, 1.25rem) !important;
   }
+
+  /* ── PDF Preview Modal printing ──────────────────────────────── */
+  /* When the preview modal is open, print only its content */
+  body.pdf-preview-active #root {
+    display: none !important;
+  }
+
+  body.pdf-preview-active .pdf-preview-controls {
+    display: none !important;
+  }
+
+  body.pdf-preview-active .pdf-preview-portal {
+    position: static !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body.pdf-preview-active .pdf-preview-content {
+    overflow: visible !important;
+    height: auto !important;
+    flex: none !important;
+  }
+
+  body.pdf-preview-active .pdf-preview-content .mb-8 {
+    break-inside: avoid;
+    padding-top: 6mm;
+  }
 }
