@@ -125,6 +125,23 @@
     background-color: transparent !important;
   }
 
+  /* Active chord highlight during playback */
+  .word-token.is-playing .chord-text {
+    @apply text-amber-600 dark:text-amber-300;
+    animation: chord-pulse 0.4s ease-out;
+  }
+
+  .word-token.is-playing .token-word {
+    @apply bg-amber-100 dark:bg-amber-900/40;
+    animation: chord-pulse 0.4s ease-out;
+  }
+
+  @keyframes chord-pulse {
+    0%   { opacity: 0.5; transform: scale(0.97); }
+    50%  { opacity: 1;   transform: scale(1.03); }
+    100% { opacity: 1;   transform: scale(1); }
+  }
+
   .bottom-sheet {
     @apply fixed inset-x-0 bottom-0 z-50 rounded-t-2xl shadow-2xl border-t;
     background-color: hsl(var(--card));

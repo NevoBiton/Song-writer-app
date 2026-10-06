@@ -4,6 +4,7 @@ export interface Song {
   artist?: string;
   key?: string;
   capo?: number;
+  bpm?: number;
   language: 'he' | 'en' | 'mixed';
   sections: Section[];
   recentChords?: string[];

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, IsArray, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, IsArray, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateSongDto {
@@ -27,6 +27,13 @@ export class CreateSongDto {
   @IsOptional()
   @IsString()
   language?: string;
+
+  @ApiProperty({ example: 80, required: false, description: 'Tempo in BPM (40–200)' })
+  @IsOptional()
+  @IsInt()
+  @Min(40)
+  @Max(200)
+  bpm?: number;
 
   @ApiProperty({ required: false, description: 'Song sections (verse, chorus, etc.) as JSON array' })
   @IsOptional()

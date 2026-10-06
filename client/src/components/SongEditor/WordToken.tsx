@@ -6,11 +6,12 @@ interface Props {
   isSpace?: boolean;
   isRTL?: boolean;
   readOnly?: boolean;
+  isActive?: boolean;
   onWordClick: () => void;
   onChordClick: () => void;
 }
 
-export default function WordToken({ text, chords, isSpace, isRTL, readOnly, onWordClick, onChordClick }: Props) {
+export default function WordToken({ text, chords, isSpace, isRTL, readOnly, isActive, onWordClick, onChordClick }: Props) {
   const touchScrolled = useRef(false);
   const touchStartY = useRef(0);
 
@@ -39,7 +40,7 @@ export default function WordToken({ text, chords, isSpace, isRTL, readOnly, onWo
 
   return (
     <span
-      className={`word-token${readOnly ? ' is-readonly' : ''}`}
+      className={`word-token${readOnly ? ' is-readonly' : ''}${isActive ? ' is-playing' : ''}`}
       style={{ marginRight: isRTL ? 0 : '2px', marginLeft: isRTL ? '2px' : 0 }}
       onTouchStart={!readOnly ? handleTouchStart : undefined}
       onTouchMove={!readOnly ? handleTouchMove : undefined}
