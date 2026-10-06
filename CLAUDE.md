@@ -37,6 +37,7 @@ npm run dev:server   # NestJS on :3001
 | Forms     | react-hook-form + zod                                  |
 | Routing   | React Router v6                                        |
 | HTTP      | Axios with JWT Bearer interceptors                     |
+| Audio     | Tone.js v15 (Web Audio, transport, sampler) + tonal v6 (music theory) |
 | Auth      | bcryptjs + jsonwebtoken (7-day JWTs, local users table)|
 | Backend   | Node.js, NestJS 10, TypeScript                         |
 | Validation| class-validator + class-transformer (DTOs)             |
@@ -108,9 +109,9 @@ Local connection: `postgresql://songuser:songpass@localhost:54327/song_notebook`
 ```
 users:                       id (uuid PK), email (unique), username (unique), password_hash (nullable),
                              google_id (unique, nullable), avatar, email_confirmed (bool, default true), created_at
-songs:                       id, user_id, title, artist, key, capo, language, sections (json),
+songs:                       id, user_id, title, artist, key, capo, bpm (nullable int), language, sections (json),
                              recent_chords (json), created_at, updated_at
-deleted_songs:               mirrors songs + deleted_at timestamp
+deleted_songs:               mirrors songs (including bpm) + deleted_at timestamp
 password_reset_tokens:       id, user_id, token (unique), expires_at, used_at
 email_confirmation_tokens:   id, user_id, token (unique), expires_at, confirmed_at
 ```

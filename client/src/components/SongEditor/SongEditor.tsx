@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, CopyPlus, Clipboard, FileDown, Music2, Printer, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, CopyPlus, Clipboard, FileDown, Music2, Printer, Loader2, Play, Pause } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -11,6 +11,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Song, Section } from '../../types';
 import { useSong } from '../../hooks/useSong';
+import { useSongPlayer } from '../../hooks/useSongPlayer';
+import PlayerBar from '../SongPlayer/PlayerBar';
 import { sectionToPlainText } from '../../utils/chordParser';
 import { getAllKeys } from '../../utils/transpose';
 import ChordLine from './ChordLine';
@@ -137,7 +139,28 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     transpose,
     reorderSections,
     updateRecentChords,
+    updateBpm,
   } = useSong(initialSong, onSave);
+
+  const {
+    playerState,
+    activeTokenId,
+    isLoading: playerIsLoading,
+    bpm,
+    setBpm,
+    instrument,
+    setInstrument,
+    play,
+    pause,
+    stop,
+    resume,
+    hasChords: playerHasChords,
+  } = useSongPlayer(song, song.bpm);
+
+  function handleBpmChange(newBpm: number) {
+    setBpm(newBpm);
+    updateBpm(newBpm);
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -533,6 +556,28 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
               </TooltipTrigger>
               <TooltipContent side="bottom">{t.exportPdf}</TooltipContent>
             </Tooltip>
+            {/* Play button in edit mode */}
+            {playerHasChords && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost" size="icon"
+                    disabled={playerIsLoading}
+                    onClick={playerState === 'playing' ? pause : playerState === 'paused' ? resume : play}
+                    className={`h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 ${playerState !== 'stopped' ? 'text-amber-500' : 'text-muted-foreground'}`}
+                    title={playerIsLoading ? t.playerLoading : playerState === 'playing' ? t.playerPause : t.playerPlay}
+                  >
+                    {playerIsLoading
+                      ? <Loader2 className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7 animate-spin" />
+                      : playerState === 'playing'
+                        ? <Pause className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7 fill-current" />
+                        : <Play className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7 fill-current" />
+                    }
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{playerIsLoading ? t.playerLoading : playerState === 'playing' ? t.playerPause : t.playerPlay}</TooltipContent>
+              </Tooltip>
+            )}
             <div className="flex-1" />
             <Button
               onClick={() => setPreviewMode(true)}
@@ -748,7 +793,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
           </div>
         </div>
         <div className="min-h-full flex flex-col">
-          <div className="flex-1 px-4 py-4 pb-20">
+          <div className="flex-1 px-4 py-4 pb-32">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={song.sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
             {song.sections.map(section => (
@@ -846,6 +891,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                               onTokenClick={handleTokenClick}
                               showChords={showChords}
                               readOnly={previewMode}
+                              activeTokenId={activeTokenId}
                             />
                           ))}
                         </div>
@@ -934,6 +980,32 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Player Bar ───────────────────────────────────────────────── */}
+      {!pdfPreviewOpen && (
+        <PlayerBar
+          playerState={playerState}
+          bpm={bpm}
+          instrument={instrument}
+          activeTokenId={activeTokenId}
+          currentChordLabel={
+            activeTokenId
+              ? song.sections
+                  .flatMap(s => s.lines.flatMap(l => l.tokens))
+                  .find(tk => tk.id === activeTokenId)
+                  ?.chords?.join(' · ')
+              : undefined
+          }
+          hasChords={playerHasChords}
+          isLoading={playerIsLoading}
+          onPlay={play}
+          onPause={pause}
+          onStop={stop}
+          onResume={resume}
+          onBpmChange={handleBpmChange}
+          onInstrumentChange={setInstrument}
+        />
+      )}
 
       {/* ── Chord Picker ─────────────────────────────────────────────── */}
       <ChordPicker

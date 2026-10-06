@@ -29,9 +29,11 @@ src/
 │   ├── SongList/
 │   │   └── SongList.tsx       # Song grid, create/import dialogs
 │   ├── SongEditor/
-│   │   ├── SongEditor.tsx     # Main editor with chord placement
-│   │   ├── ChordLine.tsx      # Single line with chord tokens
-│   │   └── WordToken.tsx      # Clickable word with optional chord above
+│   │   ├── SongEditor.tsx     # Main editor with chord placement + player integration
+│   │   ├── ChordLine.tsx      # Single line with chord tokens; accepts activeTokenId for highlighting
+│   │   └── WordToken.tsx      # Clickable word with optional chord above; isActive prop for playback highlight
+│   ├── SongPlayer/
+│   │   └── PlayerBar.tsx      # Fixed bottom bar: play/pause/stop, BPM ±5, instrument selector; bilingual
 │   ├── ChordPicker/
 │   │   └── ChordPicker.tsx    # Chord selector (mobile sheet / desktop panel)
 │   ├── ChordDiagram/          # Fingering diagram component
@@ -47,19 +49,23 @@ src/
 │   └── UILanguageContext.tsx  # EN/HE UI translations (persisted to localStorage)
 ├── hooks/
 │   ├── useSongLibrary.ts      # React Query: songs list + CRUD mutations
-│   └── useSong.ts             # Local editing state (undo/redo, auto-save)
+│   ├── useSong.ts             # Local editing state (undo/redo, auto-save)
+│   └── useSongPlayer.ts       # Tone.js playback: Sampler loading, Transport scheduling, active chord tracking
 ├── lib/
 │   ├── api.ts                 # Axios instance + Bearer token interceptor
 │   ├── queryClient.ts         # React Query client config
 │   └── utils.ts               # shadcn cn() helper
 ├── utils/
 │   ├── chordParser.ts         # ChordPro parse/serialize, tokenization
+│   ├── chordToNotes.ts        # Chord name → Tone.js note strings with octaves (uses tonal)
 │   ├── rtlUtils.ts            # Hebrew RTL detection
+│   ├── songScheduler.ts       # Flatten song sections → timed ChordEvent array for Transport
 │   └── transpose.ts           # Chord transposition logic
 ├── types/
-│   └── index.ts               # Song, Section, Line, Token interfaces
+│   ├── index.ts               # Song, Section, Line, Token interfaces
+│   └── vendor.d.ts            # Manual type declarations for tonal package
 ├── App.tsx                    # Providers + React Router setup
-└── index.css                  # Tailwind + shadcn CSS variables (light/dark)
+└── index.css                  # Tailwind + shadcn CSS variables (light/dark); chord-pulse animation
 ```
 
 ## Key Patterns
@@ -101,8 +107,10 @@ interface Song {
   artist?: string;
   key?: string;          // e.g. "Am", "G"
   capo?: number;
+  bpm?: number;          // tempo, 40–200; stored in DB, adjustable per song
   language: 'he' | 'en' | 'mixed';
   sections: Section[];
+  recentChords?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -122,10 +130,22 @@ interface Line {
 interface Token {
   id: string;
   text: string;
-  chord?: string;
+  chords?: string[];     // up to 5 chords per token (chord names, e.g. "Am", "G7")
   isSpace?: boolean;
 }
 ```
+
+### Song Player
+
+- `useSongPlayer(song, initialBpm?)` — core hook; returns `{ play, pause, stop, resume, playerState, activeTokenId, bpm, setBpm, instrument, setInstrument, isLoading, hasChords }`
+- Instruments use `Tone.Sampler` with samples from `nbrosowsky.github.io/tonejs-instruments` (free CDN). Samples are lazy-loaded on first play and cached for the session.
+- Synth instrument uses `Tone.PolySynth(FMSynth)` — no network request needed.
+- `songScheduler.ts` flattens Song sections → `ChordEvent[]` (each event has `time` in seconds, `chords: string[]`, `tokenId`). Scheduled via `Tone.Part` on `Tone.getTransport()`.
+- `chordToNotes.ts` uses the `tonal` library to convert chord names (e.g. `"Am"`) to note strings with octaves (e.g. `["A3","C4","E4"]`).
+- Active chord is highlighted via polling `Transport.seconds` every 100 ms → sets `activeTokenId` → `WordToken` applies `is-playing` CSS class (amber pulse animation).
+- `isLoading` is `true` while CDN samples are fetching; play button shows a `Loader2` spinner and is disabled.
+- `PlayerBar` is a fixed bottom bar with `no-print` class (hidden in PDF export).
+- BPM changes are applied live to the Transport and persisted to the DB via `updateBpm` in `useSong`.
 
 ## Environment
 

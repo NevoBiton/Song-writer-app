@@ -7,8 +7,10 @@ A full-stack chord notebook app for musicians. Write lyrics, place chords above 
 ## Features
 
 - **Song editor** — place chords above any word in your lyrics
+- **Song player** — play any song's chord progression in the browser with real instrument samples (piano, nylon guitar, organ, strings, synth). BPM adjustable per song; active chord highlighted while playing.
 - **Chord picker** — searchable chord list with recent chords
 - **Transposition** — shift the key of an entire song up or down
+- **PDF export** — print-ready export with page-break snapping and hidden player controls
 - **Trash / restore** — soft-delete songs with a 30-day recovery window
 - **Bilingual UI** — full English and Hebrew support with RTL layout
 - **Auth** — email/password + Google sign-in
@@ -26,6 +28,7 @@ A full-stack chord notebook app for musicians. Write lyrics, place chords above 
 | Routing   | React Router v6 |
 | Data      | TanStack Query (React Query) |
 | HTTP      | Axios |
+| Audio     | Tone.js v15 (Web Audio, transport, sampler) + tonal (music theory) |
 | Backend   | NestJS 10, TypeScript |
 | ORM       | Drizzle ORM |
 | Database  | PostgreSQL — Neon (prod) / Docker (local dev) |
@@ -119,6 +122,22 @@ cd server && npm test
 ```
 
 56 unit tests across 6 spec files covering all services and controllers.
+
+---
+
+## Song Player
+
+The in-browser player uses `Tone.js` to schedule and play chord progressions. Instrument audio comes from the free [nbrosowsky/tonejs-instruments](https://github.com/nbrosowsky/tonejs-instruments) sample library (Apache 2.0) — loaded on demand from CDN with a loading indicator shown on first use.
+
+| Instrument | Source |
+|------------|--------|
+| Piano      | Recorded piano keys (sample-based) |
+| Guitar     | Nylon-string acoustic recordings, strummed |
+| Organ      | Pipe organ recordings |
+| Strings    | Violin recordings + reverb |
+| Synth      | FM synthesis (Tone.FMSynth) |
+
+BPM is stored per song in the database (nullable integer, 40–200).
 
 ---
 
