@@ -1,5 +1,5 @@
 {
-  "id": "39663d34-4c14-41eb-a2b3-4ad65517f380",
+  "id": "b7c2d1e0-f3a4-4b5c-9d6e-8f7a0b1c2d3e",
   "prevId": "ea71aa4c-01a8-4117-aa6a-c4358b2654af",
   "version": "7",
   "dialect": "postgresql",
@@ -44,12 +44,6 @@
           "primaryKey": false,
           "notNull": false,
           "default": 0
-        },
-        "bpm": {
-          "name": "bpm",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
         },
         "language": {
           "name": "language",
@@ -238,12 +232,6 @@
           "primaryKey": false,
           "notNull": false,
           "default": 0
-        },
-        "bpm": {
-          "name": "bpm",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
         },
         "language": {
           "name": "language",

@@ -8,10 +8,9 @@ interface Props {
   onTokenClick: (sectionId: string, lineId: string, tokenId: string) => void;
   showChords?: boolean;
   readOnly?: boolean;
-  activeTokenId?: string | null;
 }
 
-export default function ChordLine({ line, sectionId, onTokenClick, showChords = true, readOnly, activeTokenId }: Props) {
+export default function ChordLine({ line, sectionId, onTokenClick, showChords = true, readOnly }: Props) {
   const lineText = line.tokens.map(t => t.text).join('');
   const rtl = isRTLLine(lineText);
 
@@ -28,7 +27,6 @@ export default function ChordLine({ line, sectionId, onTokenClick, showChords = 
           isSpace={token.isSpace}
           isRTL={rtl}
           readOnly={readOnly}
-          isActive={activeTokenId != null && token.id === activeTokenId}
           onWordClick={() => onTokenClick(sectionId, line.id, token.id)}
           onChordClick={() => onTokenClick(sectionId, line.id, token.id)}
         />
