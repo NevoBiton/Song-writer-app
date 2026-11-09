@@ -64,6 +64,13 @@
       "when": 1777036579270,
       "tag": "0008_dapper_albert_cleary",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1762732508000,
+      "tag": "0009_drop_bpm_column",
+      "breakpoints": true
     }
   ]
 }
