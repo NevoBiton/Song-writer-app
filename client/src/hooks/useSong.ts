@@ -300,10 +300,6 @@ export function useSong(
     commit({ ...song, language });
   }, [song]);
 
-  const updateBpm = useCallback((bpm: number) => {
-    commit({ ...song, bpm });
-  }, [song]);
-
   const transpose = useCallback((semitones: number) => {
     commit(transposeSong(song, semitones));
   }, [song]);
@@ -337,6 +333,5 @@ export function useSong(
     transpose,
     reorderSections,
     updateRecentChords,
-    updateBpm,
   };
 }
