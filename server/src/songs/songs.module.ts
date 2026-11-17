@@ -7,5 +7,6 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule],
   controllers: [SongsController],
   providers: [SongsService],
+  exports: [SongsService],
 })
 export class SongsModule {}

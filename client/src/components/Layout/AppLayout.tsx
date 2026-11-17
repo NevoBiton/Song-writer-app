@@ -50,7 +50,7 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className={`bg-background flex flex-col ${raw ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
       {/* Navbar */}
       <header className="no-print bg-card border-b border-border sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -81,6 +81,7 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
                 <BookOpen className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{t.myLibrary}</span>
               </button>
+
 
             </nav>
 

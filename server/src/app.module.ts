@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { SongsModule } from './songs/songs.module';
 import { UsersModule } from './users/users.module';
 import { LoggerModule } from './logger/logger.module';
+import { AgentModule } from './agent/agent.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { LoggerModule } from './logger/logger.module';
         APP_URL: Joi.string().required(),
         ALLOWED_ORIGIN: Joi.string().optional(),
         NODE_ENV: Joi.string().optional(),
+        ANTHROPIC_API_KEY: Joi.string().optional(),
       }),
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
@@ -32,6 +34,7 @@ import { LoggerModule } from './logger/logger.module';
     AuthModule,
     SongsModule,
     UsersModule,
+    AgentModule,
   ],
   controllers: [AppController],
   providers: [
