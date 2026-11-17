@@ -15,6 +15,15 @@ export class SongsService {
     return this.db.db.select().from(songs).where(eq(songs.userId, userId)).orderBy(songs.updatedAt);
   }
 
+  async findOne(id: string, userId: string) {
+    const [song] = await this.db.db
+      .select()
+      .from(songs)
+      .where(and(eq(songs.id, id), eq(songs.userId, userId)));
+    if (!song) throw new NotFoundException('Song not found');
+    return song;
+  }
+
   async create(userId: string, dto: CreateSongDto) {
     const [song] = await this.db.db
       .insert(songs)

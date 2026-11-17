@@ -219,6 +219,16 @@ export const translations = {
     emailConfirmedTitle: 'Email confirmed!',
     emailConfirmedDesc: 'Your email has been confirmed. You can now sign in.',
     pendingConfirmation: 'An account with this email is pending confirmation. Please check your inbox.',
+    // Agent page
+    agentTitle: 'AI Assistant',
+    agentSubtitle: 'Ask me anything about music or your songs',
+    agentEmpty: 'How can I help you?',
+    agentEmptyDesc: 'Ask about your songs, create new ones, or get music tips',
+    agentPlaceholder: 'Ask me anything… (Enter to send, Shift+Enter for newline)',
+    agentShortPlaceholder: 'Ask me anything…',
+    agentHint: 'Enter to send · Shift+Enter for new line',
+    agentError: 'Something went wrong. Please try again.',
+    assistant: 'Assistant',
   },
   he: {
     // App
@@ -436,6 +446,16 @@ export const translations = {
     emailConfirmedTitle: 'האימייל אומת!',
     emailConfirmedDesc: 'כתובת האימייל שלך אומתה בהצלחה. כעת תוכל להתחבר.',
     pendingConfirmation: 'חשבון עם האימייל הזה ממתין לאימות. בדוק את תיבת הדואר שלך.',
+    // Agent page
+    agentTitle: 'העוזר האישי',
+    agentSubtitle: 'שאל אותי כל דבר על מוזיקה או על השירים שלך',
+    agentEmpty: 'במה אוכל לעזור לך?',
+    agentEmptyDesc: 'שאל על השירים שלך, צור שירים חדשים, או קבל טיפים מוזיקליים',
+    agentPlaceholder: 'שאל אותי כל דבר… (Enter לשליחה, Shift+Enter לשורה חדשה)',
+    agentShortPlaceholder: 'שאל אותי כל דבר…',
+    agentHint: 'Enter לשליחה · Shift+Enter לשורה חדשה',
+    agentError: 'משהו השתבש. נסה שוב.',
+    assistant: 'עוזר',
   },
 } as const;
 
