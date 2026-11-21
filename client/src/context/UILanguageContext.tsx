@@ -319,6 +319,10 @@ export const translations = {
     diffRemoved: 'Removed',
     diffUnchanged: 'Unchanged',
     diffNoChanges: 'No changes detected',
+    syncWithOwner: 'Sync with owner',
+    syncOverwriteConfirm: 'Discard your edits?',
+    versionRestored: 'Version restored',
+    restoreVersionConfirm: 'Overwrite current song with this version?',
   },
   he: {
     // App
@@ -636,6 +640,10 @@ export const translations = {
     diffRemoved: 'הוסר',
     diffUnchanged: 'ללא שינוי',
     diffNoChanges: 'לא זוהו שינויים',
+    syncWithOwner: 'סנכרן עם הבעלים',
+    syncOverwriteConfirm: 'לוותר על העריכות?',
+    versionRestored: 'הגרסה שוחזרה',
+    restoreVersionConfirm: 'לדרוס את השיר הנוכחי בגרסה זו?',
   },
 } as const;
 

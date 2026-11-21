@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, CopyPlus, Clipboard, FileDown, Music2, Printer, Loader2, Users, Send } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, CopyPlus, Clipboard, FileDown, Music2, Printer, Loader2, Users, Send, RefreshCw } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -267,6 +267,20 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
       socket.off('song_proposal', onSongProposal);
     };
   }, [socket, song.id, resetSections, t.proposalRejected, t.newProposalFrom, queryClient]);
+
+  const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
+
+  function handleSyncWithOwner() {
+    const ownerSections = queryClient
+      .getQueryData<Song[]>(['songs'])
+      ?.find(s => s.id === song.id)
+      ?.sections as Section[] | undefined;
+    if (ownerSections) {
+      if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+      resetSections(ownerSections);
+    }
+    setSyncConfirmOpen(false);
+  }
 
   const [showProposeDialog, setShowProposeDialog] = useState(false);
   const [showInvitePanel, setShowInvitePanel] = useState(false);
@@ -596,6 +610,36 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                 ✓ {t.draftSavedLabel}
               </span>
             )}
+            {isCollaboratorRole && (
+              syncConfirmOpen ? (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">{t.syncOverwriteConfirm}</span>
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-6 text-xs px-2 text-destructive hover:text-destructive"
+                    onClick={handleSyncWithOwner}
+                  >
+                    {t.accept}
+                  </Button>
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-6 text-xs px-2"
+                    onClick={() => setSyncConfirmOpen(false)}
+                  >
+                    {t.cancel}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="ghost" size="sm"
+                  className="h-6 text-xs px-2 text-muted-foreground gap-1 flex-shrink-0"
+                  onClick={() => setSyncConfirmOpen(true)}
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  {t.syncWithOwner}
+                </Button>
+              )
+            )}
           </div>
           {/* Row 2: actions */}
           <div className="flex items-center gap-0.5 px-2 pb-2 md:pb-3 lg:pb-4 lg:gap-1">
@@ -687,7 +731,12 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
           {showInvitePanel && (
             <div className="border-t border-border bg-muted/40 px-4 py-3">
               <div className="max-w-sm">
-                <InvitePanel songId={song.id} isOwner={isOwner} onClose={() => setShowInvitePanel(false)} />
+                <InvitePanel
+                  songId={song.id}
+                  isOwner={isOwner}
+                  onClose={() => setShowInvitePanel(false)}
+                  onRestoreVersion={(sections) => resetSections(sections as Section[])}
+                />
               </div>
             </div>
           )}

@@ -14,9 +14,10 @@ interface InvitePanelProps {
   songId: string;
   isOwner: boolean;
   onClose: () => void;
+  onRestoreVersion?: (sections: unknown[]) => void;
 }
 
-export function InvitePanel({ songId, isOwner, onClose }: InvitePanelProps) {
+export function InvitePanel({ songId, isOwner, onClose, onRestoreVersion }: InvitePanelProps) {
   const { t } = useUILanguage();
   const { user } = useAuth();
   const { friends } = useFriends();
@@ -165,7 +166,7 @@ export function InvitePanel({ songId, isOwner, onClose }: InvitePanelProps) {
         </button>
         {showHistory && (
           <div className="mt-2">
-            <VersionHistory songId={songId} />
+            <VersionHistory songId={songId} isOwner={isOwner} onRestore={onRestoreVersion} />
           </div>
         )}
       </div>
