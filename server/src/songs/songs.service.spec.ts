@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { SongsService } from './songs.service';
 import { DatabaseService } from '../database/database.service';
+import { AppGateway } from '../gateway/app.gateway';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,10 @@ function selectChain(result: unknown) {
 function selectWhereChain(result: unknown) {
   return { from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([result]) }) };
 }
+// Returns an empty array — used to mock queries that find nothing (e.g. no collaborators)
+function selectEmptyChain() {
+  return { from: jest.fn().mockReturnValue({ where: jest.fn().mockResolvedValue([]) }) };
+}
 function insertChain(result: unknown) {
   return { values: jest.fn().mockReturnValue({ returning: jest.fn().mockResolvedValue([result]) }) };
 }
@@ -52,6 +57,7 @@ describe('SongsService', () => {
       providers: [
         SongsService,
         { provide: DatabaseService, useValue: mockDb },
+        { provide: AppGateway, useValue: { emitToUser: jest.fn() } },
       ],
     }).compile();
 
@@ -63,7 +69,11 @@ describe('SongsService', () => {
 
   describe('findAll()', () => {
     it('returns all songs for the user ordered by updatedAt', async () => {
-      mockDb.db.select.mockReturnValue(selectChain(mockSong));
+      // First select: owned songs (uses .orderBy)
+      // Second select: collaborator IDs — empty array → early return
+      mockDb.db.select
+        .mockReturnValueOnce(selectChain(mockSong))
+        .mockReturnValueOnce(selectEmptyChain());
 
       const result = await service.findAll(userId);
 
@@ -103,6 +113,11 @@ describe('SongsService', () => {
   describe('update()', () => {
     it('updates a song and returns the updated record', async () => {
       const updated = { ...mockSong, title: 'Updated Title' };
+      // First select: fetch current sections before update
+      // Second select: fetch collaborators after update — empty → no socket emit
+      mockDb.db.select
+        .mockReturnValueOnce(selectWhereChain({ sections: [] }))
+        .mockReturnValueOnce(selectEmptyChain());
       mockDb.db.update.mockReturnValue(updateChain(updated));
 
       const result = await service.update(songId, userId, { title: 'Updated Title' });
@@ -111,6 +126,8 @@ describe('SongsService', () => {
     });
 
     it('throws NotFoundException when song does not exist or is not owned', async () => {
+      // select for current sections returns nothing; update returns null → NotFoundException
+      mockDb.db.select.mockReturnValueOnce(selectWhereChain(undefined));
       mockDb.db.update.mockReturnValue(updateChain(null));
 
       await expect(service.update('wrong-id', userId, { title: 'Nope' }))

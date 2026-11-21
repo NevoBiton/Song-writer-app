@@ -12,6 +12,7 @@ function uid(): string {
 export function apiToSong(data: Record<string, unknown>): Song {
   return {
     id: data.id as string,
+    userId: (data.user_id ?? data.userId) as string,
     title: data.title as string,
     artist: (data.artist as string | null) || undefined,
     key: (data.key as string | null) || undefined,

@@ -25,7 +25,7 @@ server/
 │   │   ├── database.module.ts     # @Global() module — no need to import in feature modules
 │   │   └── database.service.ts    # Injectable pg.Pool + drizzle instance
 │   ├── db/
-│   │   └── schema.ts              # Drizzle table definitions (users, songs, deletedSongs, passwordResetTokens, emailConfirmationTokens)
+│   │   └── schema.ts              # Drizzle table definitions (all tables)
 │   ├── auth/
 │   │   ├── auth.module.ts
 │   │   ├── auth.controller.ts     # POST/GET /api/auth/* routes (thin HTTP layer)
@@ -38,11 +38,27 @@ server/
 │   │   ├── songs.controller.ts    # GET/POST/PUT/PATCH/DELETE /api/songs/* — @UseGuards on controller
 │   │   ├── songs.service.ts       # All Drizzle queries for songs + deletedSongs tables
 │   │   └── dto/
-│   └── users/
-│       ├── users.module.ts
-│       ├── users.controller.ts    # GET/PUT /api/user/* — @UseGuards on controller
-│       ├── users.service.ts       # Drizzle queries for users table
-│       └── dto/
+│   ├── users/
+│   │   ├── users.module.ts
+│   │   ├── users.controller.ts    # GET/PUT /api/user/* — @UseGuards on controller
+│   │   ├── users.service.ts       # Drizzle queries for users table
+│   │   └── dto/
+│   ├── gateway/
+│   │   └── app.gateway.ts         # Socket.IO gateway (WebSocket): online presence, real-time notifications
+│   ├── friends/
+│   │   ├── friends.module.ts
+│   │   ├── friends.controller.ts  # POST/GET/DELETE /api/friends/*
+│   │   ├── friends.service.ts     # Drizzle queries for friendships table; fires socket events
+│   │   └── dto/
+│   ├── collaboration/
+│   │   ├── collaboration.module.ts
+│   │   ├── collaboration.controller.ts  # /api/songs/:id/collaborators, /draft, /propose, /proposals, /versions
+│   │   ├── collaboration.service.ts     # Drizzle queries for song_collaborators, song_drafts, song_versions, invite_links
+│   │   └── dto/
+│   └── notifications/
+│       ├── notifications.module.ts
+│       ├── notifications.controller.ts  # GET /api/notifications, PATCH mark-read
+│       └── notifications.service.ts     # Stores and retrieves in-app notifications
 ├── drizzle/               # SQL migration files (auto-generated, do not edit)
 ├── drizzle.config.ts      # Drizzle config (DATABASE_URL from .env)
 ├── .env                   # Local secrets (git-ignored)
@@ -74,6 +90,26 @@ server/
 | GET    | /api/user/me                      | Yes  | Get current user profile                |
 | PUT    | /api/user/profile                 | Yes  | Update username, email, avatar          |
 | PUT    | /api/user/password                | Yes  | Change password (requires current)      |
+| POST   | /api/friends/request              | Yes  | Send friend request by email            |
+| GET    | /api/friends                      | Yes  | List accepted friends                   |
+| GET    | /api/friends/requests             | Yes  | List pending incoming requests          |
+| POST   | /api/friends/:id/accept           | Yes  | Accept a friend request                 |
+| DELETE | /api/friends/:id                  | Yes  | Remove friend / decline request         |
+| GET    | /api/songs/:id/collaborators      | Yes  | List song collaborators                 |
+| POST   | /api/songs/:id/invite             | Yes  | Invite a friend as collaborator         |
+| DELETE | /api/songs/:id/collaborators/:uid | Yes  | Remove collaborator (owner only)        |
+| POST   | /api/songs/:id/leave              | Yes  | Leave a song (collaborator)             |
+| POST   | /api/songs/:id/invite-link        | Yes  | Generate or refresh invite link         |
+| POST   | /api/invite/:token/accept         | Yes  | Accept invite via link                  |
+| GET    | /api/songs/:id/draft              | Yes  | Get current user's draft                |
+| PUT    | /api/songs/:id/draft              | Yes  | Save / update draft sections            |
+| POST   | /api/songs/:id/propose            | Yes  | Submit draft as proposal                |
+| GET    | /api/songs/:id/proposals          | Yes  | List pending proposals (owner only)     |
+| POST   | /api/songs/:id/proposals/:draftId/accept | Yes | Accept proposal, update song    |
+| POST   | /api/songs/:id/proposals/:draftId/reject | Yes | Reject proposal                 |
+| GET    | /api/songs/:id/versions           | Yes  | Version history                         |
+| GET    | /api/notifications                | Yes  | List notifications                      |
+| PATCH  | /api/notifications/read           | Yes  | Mark all notifications as read          |
 
 ## Database Schema
 
@@ -106,6 +142,51 @@ songs: {
 deletedSongs: mirrors songs + deletedAt timestamp
 passwordResetTokens: id, userId, token (unique), expiresAt, usedAt
 emailConfirmationTokens: id, userId, token (unique), expiresAt, confirmedAt
+
+friendships: {
+  id: uuid (PK)
+  requesterId: text (notNull)
+  receiverId: text (notNull)
+  status: text ('pending' | 'accepted', default 'pending')
+  createdAt: timestamp (defaultNow)
+}
+
+songCollaborators: {
+  id: uuid (PK)
+  songId: text (notNull)
+  userId: text (notNull)
+  role: text ('owner' | 'editor')
+  status: text ('pending' | 'accepted', default 'pending')
+  joinedAt: timestamp (defaultNow)
+  invitedBy: text (nullable)
+}
+
+songDrafts: {
+  id: uuid (PK)
+  songId: text (notNull)
+  userId: text (notNull)
+  sections: json
+  status: text ('draft' | 'proposed' | 'accepted' | 'rejected', default 'draft')
+  note: text (nullable)
+  updatedAt: timestamp (defaultNow)
+}
+
+songVersions: {
+  id: uuid (PK)
+  songId: text (notNull)
+  sections: json
+  proposedBy: text (notNull)   -- userId
+  createdAt: timestamp (defaultNow)
+}
+
+inviteLinks: {
+  id: uuid (PK)
+  songId: text (notNull)
+  token: text (unique, notNull)
+  expiresAt: timestamp (notNull)
+  usedBy: text (nullable)
+  usedAt: timestamp (nullable)
+}
 ```
 
 ## Auth

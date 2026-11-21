@@ -1,0 +1,2 @@
+CREATE TYPE "public"."collaborator_invite_status" AS ENUM('pending', 'accepted');--> statement-breakpoint
+ALTER TABLE "song_collaborators" ADD COLUMN "status" "collaborator_invite_status" DEFAULT 'accepted' NOT NULL;

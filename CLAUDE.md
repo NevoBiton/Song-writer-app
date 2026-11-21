@@ -113,6 +113,13 @@ songs:                       id, user_id, title, artist, key, capo, language, se
 deleted_songs:               mirrors songs + deleted_at timestamp
 password_reset_tokens:       id, user_id, token (unique), expires_at, used_at
 email_confirmation_tokens:   id, user_id, token (unique), expires_at, confirmed_at
+friendships:                 id, requester_id, receiver_id, status ('pending'|'accepted'), created_at
+song_collaborators:          id, song_id, user_id, role ('owner'|'editor'), status ('pending'|'accepted'),
+                             joined_at, invited_by
+song_drafts:                 id, song_id, user_id, sections (json), status ('draft'|'proposed'|'accepted'|'rejected'),
+                             note, updated_at
+song_versions:               id, song_id, sections (json), proposed_by (user_id), created_at
+invite_links:                id, song_id, token (unique), expires_at, used_by (nullable), used_at (nullable)
 ```
 
 Migrations live in `server/drizzle/`. Run `npx drizzle-kit generate` after schema changes, then `npx drizzle-kit migrate`.

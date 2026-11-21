@@ -5,6 +5,7 @@ import { Song } from '../../types';
 import { DeletedSong } from '@/hooks/useSongLibrary';
 import { Plus } from 'lucide-react';
 import { useUILanguage } from '@/context/UILanguageContext';
+import { useAuth } from '@/context/AuthContext';
 import { ButtonWithIcon } from '@/components/ButtonWithIcon';
 import type { T } from '@/context/UILanguageContext';
 import { Button } from '@/components/ui/button';
@@ -98,6 +99,7 @@ export default function SongList({
   onPermanentDeleteSong,
 }: Props) {
   const { t } = useUILanguage();
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<{ songId: string; x: number; y: number } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -280,13 +282,15 @@ export default function SongList({
                     <span className="text-muted-foreground text-xs">
                       {song.sections.length} {song.sections.length === 1 ? t.section : t.sections}
                     </span>
-                    <button
-                      onClick={e => { e.stopPropagation(); setConfirmDeleteId(song.id); }}
-                      className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded-lg hover:bg-destructive/10"
-                      title={t.deleteSongTitle}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {song.userId === user?.id && (
+                      <button
+                        onClick={e => { e.stopPropagation(); setConfirmDeleteId(song.id); }}
+                        className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded-lg hover:bg-destructive/10"
+                        title={t.deleteSongTitle}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </CardContent>

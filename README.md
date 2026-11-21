@@ -15,6 +15,11 @@ A full-stack chord notebook app for musicians. Write lyrics, place chords above 
 - **Email confirmation** — new accounts require email verification before login (3-day link)
 - **Password reset** — email link flow via Brevo
 - **User profile** — avatar (DiceBear animated, uploaded photo, or URL), username, email, password
+- **Friends** — send/accept friend requests, see real-time online status via WebSocket
+- **Song collaboration** — invite friends to co-edit a song; collaborators work on a personal draft
+- **Proposal workflow** — collaborator proposes draft for review; owner accepts or rejects with a word-level diff view
+- **Version history** — every accepted proposal is snapshotted as a song version
+- **Notifications** — in-app notifications for friend requests, invites, and proposal status changes
 
 ---
 
@@ -162,3 +167,19 @@ Key routes:
 | GET    | /api/user/me                    | Yes  | Get profile              |
 | PUT    | /api/user/profile               | Yes  | Update profile           |
 | PUT    | /api/user/password              | Yes  | Change password          |
+| POST   | /api/friends/request            | Yes  | Send friend request      |
+| GET    | /api/friends                    | Yes  | List friends             |
+| GET    | /api/friends/requests           | Yes  | List pending requests    |
+| POST   | /api/friends/:id/accept         | Yes  | Accept friend request    |
+| DELETE | /api/friends/:id                | Yes  | Remove friend            |
+| GET    | /api/songs/:id/collaborators    | Yes  | List collaborators       |
+| POST   | /api/songs/:id/invite           | Yes  | Invite friend            |
+| POST   | /api/songs/:id/invite-link      | Yes  | Generate invite link     |
+| POST   | /api/invite/:token/accept       | Yes  | Join via invite link     |
+| GET    | /api/songs/:id/draft            | Yes  | Get own draft            |
+| PUT    | /api/songs/:id/draft            | Yes  | Save draft               |
+| POST   | /api/songs/:id/propose          | Yes  | Submit proposal          |
+| GET    | /api/songs/:id/proposals        | Yes  | List pending proposals   |
+| POST   | /api/songs/:id/proposals/:draftId/accept | Yes | Accept proposal  |
+| POST   | /api/songs/:id/proposals/:draftId/reject | Yes | Reject proposal  |
+| GET    | /api/songs/:id/versions         | Yes  | Version history          |

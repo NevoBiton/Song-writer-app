@@ -2,17 +2,21 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Music2, LogOut, Globe, Sun, Moon, HelpCircle,
-  BookOpen, UserCog,
+  BookOpen, UserCog, Users, Bell,
 } from 'lucide-react';
 import { Song } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import { useUILanguage } from '@/context/UILanguageContext';
 import { useAuth } from '@/context/AuthContext';
+import { useFriends } from '@/context/FriendsContext';
+import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import ProfileModal, { getAvatarUrl } from '@/components/profile/ProfileModal';
+import { FriendsModal } from '@/components/Friends/FriendsModal';
+import { NotificationsPanel } from '@/components/Notifications/NotificationsPanel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,9 +39,14 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
   const { uiLang, setUiLang, t } = useUILanguage();
   const [showHelp, setShowHelp] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
+  const { pendingCount } = useFriends();
+  const { data: notificationsList = [] } = useNotifications();
+  const unreadNotifCount = notificationsList.filter(n => !n.isRead).length;
   const displayName = user?.username || user?.email?.split('@')[0] || 'User';
   const email = user?.email || '';
   const avatarUrl = getAvatarUrl(user?.avatar, displayName);
@@ -82,7 +91,6 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
                 <span className="hidden sm:inline">{t.myLibrary}</span>
               </button>
 
-
             </nav>
 
             {/* Right side controls */}
@@ -106,6 +114,22 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
                 className="w-8 h-8 p-0 text-muted-foreground hover:text-foreground"
               >
                 <HelpCircle className="w-4 h-4" />
+              </Button>
+
+              {/* Notifications bell */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowNotifications(true)}
+                className="w-8 h-8 p-0 relative text-muted-foreground hover:text-foreground"
+                title={t.notificationsTitle}
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] font-bold flex items-center justify-center">
+                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                  </span>
+                )}
               </Button>
 
               {/* Language toggle */}
@@ -133,7 +157,7 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
               {/* User dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-1.5 text-foreground hover:bg-accent px-2 h-8">
+                  <Button variant="ghost" size="sm" className="relative gap-1.5 text-foreground hover:bg-accent px-2 h-8">
                     <img
                       src={avatarUrl}
                       alt="avatar"
@@ -142,6 +166,11 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
                     <span className="hidden sm:inline text-xs font-medium max-w-20 truncate">
                       {displayName}
                     </span>
+                    {pendingCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-400 text-gray-900 rounded-full text-[10px] font-bold flex items-center justify-center">
+                        {pendingCount > 9 ? '9+' : pendingCount}
+                      </span>
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
@@ -162,6 +191,15 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
                   <DropdownMenuItem onClick={() => setShowProfile(true)}>
                     <UserCog className="w-4 h-4 mr-2" />
                     {t.profile}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowFriends(true)} className="relative">
+                    <Users className="w-4 h-4 mr-2" />
+                    {t.friendsTitle}
+                    {pendingCount > 0 && (
+                      <span className="ml-auto w-5 h-5 bg-amber-400 text-gray-900 rounded-full text-[10px] font-bold flex items-center justify-center">
+                        {pendingCount > 9 ? '9+' : pendingCount}
+                      </span>
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -194,6 +232,19 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
 
       {/* Profile modal */}
       <ProfileModal open={showProfile} onClose={() => setShowProfile(false)} />
+
+      {/* Friends modal */}
+      <FriendsModal open={showFriends} onClose={() => setShowFriends(false)} />
+
+      {/* Notifications panel */}
+      <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
+        <DialogContent className="sm:max-w-sm p-0 overflow-hidden">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{t.notificationsTitle}</DialogTitle>
+          </DialogHeader>
+          <NotificationsPanel onClose={() => setShowNotifications(false)} />
+        </DialogContent>
+      </Dialog>
 
       {/* Help dialog */}
       <Dialog open={showHelp} onOpenChange={setShowHelp}>

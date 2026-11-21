@@ -1,26 +1,68 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { songs, deletedSongs } from '../db/schema';
-import { eq, and, gte } from 'drizzle-orm';
+import { songs, deletedSongs, songCollaborators, songVersions, songDrafts } from '../db/schema';
+import { eq, and, gte, inArray } from 'drizzle-orm';
 import { CreateSongDto } from './dto/create-song.dto';
 import { UpdateSongDto } from './dto/update-song.dto';
+import { AppGateway } from '../gateway/app.gateway';
 
 @Injectable()
 export class SongsService {
   private readonly logger = new Logger(SongsService.name);
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly gateway: AppGateway,
+  ) {}
 
-  findAll(userId: string) {
-    return this.db.db.select().from(songs).where(eq(songs.userId, userId)).orderBy(songs.updatedAt);
+  async findAll(userId: string) {
+    // Owned songs
+    const owned = await this.db.db
+      .select()
+      .from(songs)
+      .where(eq(songs.userId, userId))
+      .orderBy(songs.updatedAt);
+
+    // Collaborated songs (accepted invites only)
+    const colRows = await this.db.db
+      .select({ songId: songCollaborators.songId })
+      .from(songCollaborators)
+      .where(and(eq(songCollaborators.userId, userId), eq(songCollaborators.status, 'accepted')));
+
+    const collaboratedIds = colRows.map(r => r.songId);
+
+    if (collaboratedIds.length === 0) return owned;
+
+    const collaborated = await this.db.db
+      .select()
+      .from(songs)
+      .where(inArray(songs.id, collaboratedIds))
+      .orderBy(songs.updatedAt);
+
+    const all = [...owned, ...collaborated];
+    all.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return all;
   }
 
   async findOne(id: string, userId: string) {
-    const [song] = await this.db.db
-      .select()
-      .from(songs)
-      .where(and(eq(songs.id, id), eq(songs.userId, userId)));
+    // Allow owner or collaborator to read the song
+    const [song] = await this.db.db.select().from(songs).where(eq(songs.id, id));
     if (!song) throw new NotFoundException('Song not found');
+
+    if (song.userId === userId) return song;
+
+    const [col] = await this.db.db
+      .select()
+      .from(songCollaborators)
+      .where(
+        and(
+          eq(songCollaborators.songId, id),
+          eq(songCollaborators.userId, userId),
+          eq(songCollaborators.status, 'accepted'),
+        ),
+      );
+
+    if (!col) throw new NotFoundException('Song not found');
     return song;
   }
 
@@ -42,6 +84,12 @@ export class SongsService {
   }
 
   async update(id: string, userId: string, dto: UpdateSongDto) {
+    // Fetch current song before update to compare sections for version snapshot
+    const [current] = await this.db.db
+      .select({ sections: songs.sections })
+      .from(songs)
+      .where(and(eq(songs.id, id), eq(songs.userId, userId)));
+
     const [song] = await this.db.db
       .update(songs)
       .set({
@@ -57,6 +105,66 @@ export class SongsService {
       .returning();
 
     if (!song) throw new NotFoundException('Song not found');
+
+    // Create version snapshot when sections change (tracks owner edit history)
+    if (current && JSON.stringify(current.sections) !== JSON.stringify(dto.sections ?? [])) {
+      await this.db.db
+        .insert(songVersions)
+        .values({ songId: id, sections: dto.sections ?? [], proposedBy: userId });
+    }
+
+    // Auto-rebase unmodified collaborator drafts, then notify all collaborators
+    const collabs = await this.db.db
+      .select({ userId: songCollaborators.userId })
+      .from(songCollaborators)
+      .where(
+        and(
+          eq(songCollaborators.songId, id),
+          eq(songCollaborators.status, 'accepted'),
+          eq(songCollaborators.role, 'editor'),
+        ),
+      );
+
+    if (collabs.length > 0) {
+      const collabUserIds = collabs.map(c => c.userId);
+
+      // Fetch all collaborator drafts for this song in one query
+      const drafts = await this.db.db
+        .select()
+        .from(songDrafts)
+        .where(
+          and(
+            eq(songDrafts.songId, id),
+            eq(songDrafts.status, 'draft'),
+            inArray(songDrafts.userId, collabUserIds),
+          ),
+        );
+
+      const draftMap = new Map(drafts.map(d => [d.userId, d]));
+      const prevSectionsJson = JSON.stringify(current?.sections ?? []);
+
+      for (const col of collabs) {
+        const draft = draftMap.get(col.userId);
+        let draftRebased = false;
+
+        if (draft && JSON.stringify(draft.sections) === prevSectionsJson) {
+          // Draft matches the old song — it's unmodified, so rebase it to the new sections
+          await this.db.db
+            .update(songDrafts)
+            .set({ sections: dto.sections ?? [], updatedAt: new Date() })
+            .where(eq(songDrafts.id, draft.id));
+          draftRebased = true;
+          this.logger.debug(`Draft rebased for user=${col.userId} song=${id}`);
+        }
+
+        this.gateway.emitToUser(col.userId, 'song_updated', {
+          songId: id,
+          newSections: song.sections,
+          draftRebased,
+        });
+      }
+    }
+
     this.logger.log(`Song updated: "${song.title}" (id=${id}) by user=${userId}`);
     return song;
   }
