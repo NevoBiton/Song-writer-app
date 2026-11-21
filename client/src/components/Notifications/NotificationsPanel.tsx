@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, X, Bell, UserPlus, Music2, FileText, CheckCircle, XCircle, Users } from 'lucide-react';
+import { Check, X, Bell, Music2, FileText, CheckCircle, XCircle, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUILanguage } from '@/context/UILanguageContext';
 import { useFriends } from '@/context/FriendsContext';
