@@ -10,6 +10,10 @@ import { SongsModule } from './songs/songs.module';
 import { UsersModule } from './users/users.module';
 import { LoggerModule } from './logger/logger.module';
 import { AgentModule } from './agent/agent.module';
+import { GatewayModule } from './gateway/gateway.module';
+import { FriendsModule } from './friends/friends.module';
+import { CollaborationModule } from './collaboration/collaboration.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -35,6 +39,10 @@ import { AgentModule } from './agent/agent.module';
     SongsModule,
     UsersModule,
     AgentModule,
+    GatewayModule,
+    NotificationsModule,
+    FriendsModule,
+    CollaborationModule,
   ],
   controllers: [AppController],
   providers: [

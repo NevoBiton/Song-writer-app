@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, CopyPlus, Clipboard, FileDown, Music2, Printer, Loader2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, ArrowRight, Undo2, Redo2, Settings, Eye, Edit3, Plus, Share2, Check, X, SlidersHorizontal, GripVertical, CopyPlus, Clipboard, FileDown, Music2, Printer, Loader2, Users, Send } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -9,7 +10,7 @@ import {
   SortableContext, verticalListSortingStrategy, useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Song, Section } from '../../types';
+import { Song, Section, Collaborator } from '../../types';
 import { useSong } from '../../hooks/useSong';
 import { sectionToPlainText } from '../../utils/chordParser';
 import { getAllKeys } from '../../utils/transpose';
@@ -34,6 +35,13 @@ import {
 } from '@/components/ui/tooltip';
 import { useUILanguage } from '@/context/UILanguageContext';
 import type { T } from '@/context/UILanguageContext';
+import { useAuth } from '@/context/AuthContext';
+import { useSocket } from '@/context/SocketContext';
+import { useCollaborators, useProposals, useDraft, useSaveDraft } from '@/hooks/useCollaboration';
+import { InvitePanel } from '@/components/Collaboration/InvitePanel';
+import { ProposalBanner } from '@/components/Collaboration/ProposalBanner';
+import { ProposeDialog } from '@/components/Collaboration/ProposeDialog';
+import { toast } from 'sonner';
 import api from '@/lib/api';
 
 interface Props {
@@ -117,6 +125,13 @@ function sectionTypeLabel(type: Section['type'], t: T): string {
 }
 
 export default function SongEditor({ song: initialSong, onSave, onBack, isMobile }: Props) {
+  // Intercept saves: collaborators save to their draft, not the main song
+  const isCollaboratorRef = useRef(false);
+  const interceptedSave = useCallback((updatedSong: Song) => {
+    if (isCollaboratorRef.current) return;
+    onSave(updatedSong);
+  }, [onSave]);
+
   const {
     song,
     undo, redo, canUndo, canRedo,
@@ -137,7 +152,8 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
     transpose,
     reorderSections,
     updateRecentChords,
-  } = useSong(initialSong, onSave);
+    resetSections,
+  } = useSong(initialSong, interceptedSave);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -152,6 +168,108 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
   }
 
   const { t, uiLang } = useUILanguage();
+  const { user } = useAuth();
+  const { socket } = useSocket();
+  const queryClient = useQueryClient();
+  const isOwner = song.userId === user?.id;
+  const { data: collaborators = [] } = useCollaborators(song.id);
+  const { data: proposals = [] } = useProposals(song.id);
+  const isCollaboratorRole = !isOwner && collaborators.some((c: Collaborator) => c.userId === user?.id);
+
+  // Keep ref in sync for the interceptedSave callback
+  useEffect(() => { isCollaboratorRef.current = isCollaboratorRole; }, [isCollaboratorRole]);
+
+  // Draft mode: load collaborator's draft and initialize editor sections
+  const { data: myDraft } = useDraft(song.id, isCollaboratorRole);
+  const draftInitialized = useRef(false);
+  const saveDraft = useSaveDraft(song.id);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const draftSaveTimer = useRef<number | null>(null);
+
+  // Reset draftInitialized when switching songs
+  useEffect(() => { draftInitialized.current = false; }, [song.id]);
+
+  // Initialize editor with draft sections when draft first loads
+  useEffect(() => {
+    if (myDraft && isCollaboratorRole && !draftInitialized.current) {
+      resetSections(myDraft.sections as Section[]);
+      draftInitialized.current = true;
+    }
+  }, [myDraft, isCollaboratorRole, resetSections]);
+
+  // Auto-save draft when sections change (collaborators only)
+  useEffect(() => {
+    if (!isCollaboratorRole || !draftInitialized.current) return;
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+    draftSaveTimer.current = window.setTimeout(() => {
+      saveDraft.mutate(song.sections as unknown[], {
+        onSuccess: () => {
+          setDraftSaved(true);
+          setTimeout(() => setDraftSaved(false), 2000);
+        },
+      });
+    }, 3000);
+    return () => { if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [song.sections, isCollaboratorRole]);
+
+  // WebSocket listeners
+  useEffect(() => {
+    if (!socket) return;
+
+    // Live song update from the owner
+    function onSongUpdated(data: { songId: string; newSections: Section[]; draftRebased?: boolean }) {
+      if (data.songId !== song.id) return;
+
+      if (isCollaboratorRef.current) {
+        if (data.draftRebased) {
+          // Server rebased the draft in DB (it was unmodified) — reload the fresh draft.
+          // Clearing draftInitialized lets the existing init useEffect call resetSections
+          // once the invalidated query resolves with the new sections.
+          if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+          draftInitialized.current = false;
+          queryClient.invalidateQueries({ queryKey: ['draft', song.id] });
+        } else if (draftInitialized.current) {
+          // Collaborator has active edits that differ from the old song — preserve their
+          // work and only update the reference copy so proposals/diffs stay accurate.
+          queryClient.setQueryData<Song[]>(['songs'], (old = []) =>
+            old.map(s => s.id === data.songId ? { ...s, sections: data.newSections } : s)
+          );
+        } else {
+          // No draft loaded yet — apply the new sections as the initial state.
+          resetSections(data.newSections);
+        }
+      } else {
+        // Owner — apply sections directly
+        resetSections(data.newSections);
+      }
+    }
+
+    // Collaborator: their proposal was rejected
+    function onProposalRejected(data: { songId: string; note?: string }) {
+      if (data.songId !== song.id) return;
+      toast.error(t.proposalRejected + (data.note ? `: "${data.note}"` : ''));
+    }
+
+    // Owner: a collaborator submitted a proposal → refresh proposals list in real-time
+    function onSongProposal(data: { songId: string; proposedBy: { username: string } }) {
+      if (data.songId !== song.id) return;
+      queryClient.invalidateQueries({ queryKey: ['proposals', song.id] });
+      toast.info(`${t.newProposalFrom} ${data.proposedBy.username}`);
+    }
+
+    socket.on('song_updated', onSongUpdated);
+    socket.on('proposal_rejected', onProposalRejected);
+    socket.on('song_proposal', onSongProposal);
+    return () => {
+      socket.off('song_updated', onSongUpdated);
+      socket.off('proposal_rejected', onProposalRejected);
+      socket.off('song_proposal', onSongProposal);
+    };
+  }, [socket, song.id, resetSections, t.proposalRejected, t.newProposalFrom, queryClient]);
+
+  const [showProposeDialog, setShowProposeDialog] = useState(false);
+  const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [isEditingLyrics, setIsEditingLyrics] = useState(false);
   const [editTexts, setEditTexts] = useState<Record<string, string>>({});
   const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
@@ -470,8 +588,13 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
                 <div className="text-muted-foreground text-xs md:text-sm lg:text-lg truncate">{song.artist}</div>
               )}
             </div>
-            {savedIndicator && (
+            {savedIndicator && !isCollaboratorRole && (
               <span className="text-green-600 text-xs md:text-sm lg:text-lg font-medium flex-shrink-0">✓</span>
+            )}
+            {draftSaved && isCollaboratorRole && (
+              <span className="text-amber-600 text-xs md:text-sm lg:text-lg font-medium flex-shrink-0">
+                ✓ {t.draftSavedLabel}
+              </span>
             )}
           </div>
           {/* Row 2: actions */}
@@ -533,6 +656,24 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
               </TooltipTrigger>
               <TooltipContent side="bottom">{t.exportPdf}</TooltipContent>
             </Tooltip>
+            {/* Collaborators button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost" size="icon"
+                  onClick={() => setShowInvitePanel(s => !s)}
+                  className={`relative h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 ${showInvitePanel ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-muted-foreground'}`}
+                >
+                  <Users className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />
+                  {isOwner && proposals.length > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center">
+                      {proposals.length}
+                    </span>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{t.collaborators}</TooltipContent>
+            </Tooltip>
             <div className="flex-1" />
             <Button
               onClick={() => setPreviewMode(true)}
@@ -541,6 +682,15 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
               <Eye className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-6 lg:h-6" /> {t.view}
             </Button>
           </div>
+
+          {/* Invite / Collaboration panel (inline, below toolbar) */}
+          {showInvitePanel && (
+            <div className="border-t border-border bg-muted/40 px-4 py-3">
+              <div className="max-w-sm">
+                <InvitePanel songId={song.id} isOwner={isOwner} onClose={() => setShowInvitePanel(false)} />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -636,6 +786,16 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
         <div className="bg-amber-50 border-b border-amber-100 px-4 py-2 flex-shrink-0">
           <p className="text-amber-700 text-xs">
             💡 {t.chordTip}
+          </p>
+        </div>
+      )}
+
+      {/* Draft mode banner for collaborators */}
+      {isCollaboratorRole && !previewMode && (
+        <div className="bg-blue-50 dark:bg-blue-950/20 border-b border-blue-200 dark:border-blue-800 px-4 py-2 flex-shrink-0 flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+          <p className="text-blue-700 dark:text-blue-400 text-xs font-medium flex-1">
+            {t.draftModeBanner}
           </p>
         </div>
       )}
@@ -749,6 +909,14 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
         </div>
         <div className="min-h-full flex flex-col">
           <div className="flex-1 px-4 py-4 pb-20">
+            {/* Proposal banner — owner sees pending proposals here */}
+            {isOwner && proposals.length > 0 && !previewMode && (
+              <ProposalBanner
+                songId={song.id}
+                currentSections={song.sections}
+                onAccepted={(newSections) => resetSections(newSections)}
+              />
+            )}
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={song.sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
             {song.sections.map(section => (
@@ -865,7 +1033,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
 
       {/* ── Fixed bottom action bar (edit mode only) ────────────────── */}
       {!previewMode && (
-        <div className={`fixed bottom-5 z-30 flex items-center gap-2 ${uiLang === 'he' ? 'right-4' : 'left-4'}`}>
+        <div className={`fixed bottom-20 z-30 flex items-center gap-2 ${uiLang === 'he' ? 'right-4' : 'left-4'}`}>
 
           {/* Edit lyrics */}
           <Button
@@ -901,6 +1069,16 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {isCollaboratorRole && (
+            <Button
+              onClick={() => setShowProposeDialog(true)}
+              className="gap-1.5 bg-amber-400 hover:bg-amber-500 text-gray-900 font-semibold border-0 shadow-md h-9 md:h-11 lg:h-14 px-3 md:px-4 lg:px-6 text-sm md:text-base lg:text-xl"
+            >
+              <Send className="w-3.5 h-3.5 md:w-4 md:h-4 lg:w-6 lg:h-6" />
+              {t.proposeDraft}
+            </Button>
+          )}
+
         </div>
       )}
 
@@ -934,6 +1112,13 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Propose Changes dialog (collaborators) ───────────────────── */}
+      <ProposeDialog
+        songId={song.id}
+        open={showProposeDialog}
+        onClose={() => setShowProposeDialog(false)}
+      />
 
       {/* ── Chord Picker ─────────────────────────────────────────────── */}
       <ChordPicker

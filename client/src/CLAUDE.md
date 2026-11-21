@@ -25,11 +25,11 @@ src/
 │   │   ├── ConfirmEmailPage.tsx    # /confirm-email?token=… — confirms registration, shows success/error
 │   │   └── AuthLanguageToggle.tsx  # EN/HE toggle shown on all auth pages
 │   ├── Layout/
-│   │   └── AppLayout.tsx      # Navbar, dark mode, language toggle, profile
+│   │   └── AppLayout.tsx      # Navbar, dark mode, language toggle, profile, notifications bell
 │   ├── SongList/
 │   │   └── SongList.tsx       # Song grid, create/import dialogs
 │   ├── SongEditor/
-│   │   ├── SongEditor.tsx     # Main editor with chord placement
+│   │   ├── SongEditor.tsx     # Main editor with chord placement + collaboration panel
 │   │   ├── ChordLine.tsx      # Single line with chord tokens
 │   │   └── WordToken.tsx      # Clickable word with optional chord above
 │   ├── ChordPicker/
@@ -37,6 +37,13 @@ src/
 │   ├── ChordDiagram/          # Fingering diagram component
 │   ├── Home/
 │   │   └── HomePage.tsx       # Landing view for authenticated users
+│   ├── Collaboration/
+│   │   ├── ProposalBanner.tsx  # Shows pending proposals to song owner; word-level diff dialog + accept/reject
+│   │   ├── ProposeDialog.tsx   # Dialog for collaborator to submit a draft as proposal
+│   │   ├── InvitePanel.tsx     # Panel in SongEditor to manage collaborators and invite friends
+│   │   └── VersionHistory.tsx  # Expandable version history list in SongEditor
+│   ├── Friends/               # Friends page sub-components (search, request list, friends list)
+│   ├── Notifications/         # Notifications dropdown in AppLayout navbar
 │   ├── ButtonWithIcon.tsx     # RTL-aware button: icon left (EN) / icon right (HE)
 │   └── profile/
 │       └── ProfileModal.tsx   # Edit username, email, avatar, password
@@ -44,14 +51,22 @@ src/
 │   ├── AuthContext.tsx        # JWT auth — login/register/logout/updateUser
 │   │                          #   register() calls API and returns; does NOT store token (email confirmation required)
 │   ├── ThemeContext.tsx       # Dark/light mode (persisted to localStorage)
-│   └── UILanguageContext.tsx  # EN/HE UI translations (persisted to localStorage)
+│   ├── UILanguageContext.tsx  # EN/HE UI translations (persisted to localStorage)
+│   ├── SocketContext.tsx      # Socket.IO client — connects on auth, exposes socket instance and online friends set
+│   └── FriendsContext.tsx     # Wraps friends + friend-request queries; reacts to socket events for live updates
 ├── hooks/
 │   ├── useSongLibrary.ts      # React Query: songs list + CRUD mutations
-│   └── useSong.ts             # Local editing state (undo/redo, auto-save)
+│   ├── useSong.ts             # Local editing state (undo/redo, auto-save)
+│   ├── useCollaboration.ts    # React Query hooks for collaborators, drafts, proposals, versions, invites
+│   └── useNotifications.ts    # React Query hooks for notifications list + mark-read mutation
 ├── lib/
 │   ├── api.ts                 # Axios instance + Bearer token interceptor
 │   ├── queryClient.ts         # React Query client config
+│   ├── socket.ts              # Socket.IO client factory (singleton)
 │   └── utils.ts               # shadcn cn() helper
+├── pages/
+│   ├── FriendsPage.tsx        # /friends — manage friend requests and friends list
+│   └── InvitePage.tsx         # /invite/:token — accept a song collaboration invite link
 ├── utils/
 │   ├── chordParser.ts         # ChordPro parse/serialize, tokenization
 │   ├── rtlUtils.ts            # Hebrew RTL detection

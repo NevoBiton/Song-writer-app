@@ -24,6 +24,9 @@ import { ChatWidget } from './components/ChatWidget/ChatWidget';
 import { ThemeProvider } from './context/ThemeContext';
 import { UILanguageProvider, useUILanguage } from './context/UILanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
+import { FriendsProvider } from './context/FriendsContext';
+import InvitePage from './pages/InvitePage';
 import { Toaster } from './components/ui/sonner';
 import { TooltipProvider } from './components/ui/tooltip';
 
@@ -189,6 +192,7 @@ function AuthenticatedApp() {
           path="/library/:id"
           element={<SongEditorRoute songs={songs} loading={loading} isMobile={isMobile} updateSong={updateSong} />}
         />
+        <Route path="/invite/:token" element={<InvitePage />} />
         <Route path="/confirm-email" element={<ConfirmEmailPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -241,12 +245,19 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/confirm-email" element={<ConfirmEmailPage />} />
+        <Route path="/invite/:token" element={<InvitePage />} />
         <Route path="*" element={<Navigate to="/sign-in" replace />} />
       </Routes>
     );
   }
 
-  return <AuthenticatedApp />;
+  return (
+    <SocketProvider>
+      <FriendsProvider>
+        <AuthenticatedApp />
+      </FriendsProvider>
+    </SocketProvider>
+  );
 }
 
 export default function App() {

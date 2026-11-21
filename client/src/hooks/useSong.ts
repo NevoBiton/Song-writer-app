@@ -310,6 +310,16 @@ export function useSong(
     setSong(prev => ({ ...prev, recentChords: chords }));
   }, []);
 
+  // Replaces sections and clears undo history without triggering onSave.
+  // Used when loading a collaborator draft or applying an accepted proposal.
+  const resetSections = useCallback((sections: Section[]) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    const updated = { ...song, sections };
+    setSong(updated);
+    setHistory([updated]);
+    setHistoryIndex(0);
+  }, [song]);
+
   return {
     song,
     undo,
@@ -333,5 +343,6 @@ export function useSong(
     transpose,
     reorderSections,
     updateRecentChords,
+    resetSections,
   };
 }
