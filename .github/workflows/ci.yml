@@ -8,7 +8,7 @@ on:
 
 jobs:
   server:
-    name: Render — tests & build
+    name: Server — tests & build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,7 +33,7 @@ jobs:
         run: npm run build
 
   client:
-    name: Vercel — typecheck & build
+    name: Client — typecheck & build
     runs-on: ubuntu-latest
     defaults:
       run:
