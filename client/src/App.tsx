@@ -20,7 +20,7 @@ import ConfirmEmailPage from './components/auth/ConfirmEmailPage';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import HomePage from './components/Home/HomePage';
 import { AppLayout } from './components/Layout/AppLayout';
-import { ChatWidget } from './components/ChatWidget/ChatWidget';
+// import { ChatWidget } from './components/ChatWidget/ChatWidget'; // AI Assistant — hidden until ready
 import { ThemeProvider } from './context/ThemeContext';
 import { UILanguageProvider, useUILanguage } from './context/UILanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -229,7 +229,7 @@ function AuthenticatedApp() {
         </DialogContent>
       </Dialog>
 
-      <ChatWidget />
+      {/* <ChatWidget /> */}
     </>
   );
 }
