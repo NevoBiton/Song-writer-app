@@ -25,7 +25,9 @@ export default function LoginPage() {
       await login(email, password, true);
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 401) {
+      if (status === 429) {
+        toast.error(t.tooManyRequests);
+      } else if (status === 401) {
         toast.error(t.signInFailed);
       } else {
         const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;

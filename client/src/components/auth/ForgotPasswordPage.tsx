@@ -23,8 +23,13 @@ export default function ForgotPasswordPage() {
       await api.post('/auth/forgot-password', { email, lang: uiLang });
       setSubmitted(true);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg || 'Something went wrong. Please try again.');
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 429) {
+        setError(t.tooManyRequests);
+      } else {
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+        setError(msg || 'Something went wrong. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

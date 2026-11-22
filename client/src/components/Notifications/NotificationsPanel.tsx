@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, X, Bell, Music2, FileText, CheckCircle, XCircle, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUILanguage, T } from '@/context/UILanguageContext';
 import { useFriends } from '@/context/FriendsContext';
 import {
-  useNotifications, useMarkRead, useMarkAllRead, useDeleteNotification,
+  useNotifications, useMarkRead, useMarkPassiveRead, useDeleteNotification,
   AppNotification,
 } from '@/hooks/useNotifications';
 import { useQueryClient } from '@tanstack/react-query';
@@ -68,13 +68,21 @@ function NotificationText({ notif }: { notif: AppNotification }) {
 
 function NotificationItem({ notif }: { notif: AppNotification }) {
   const { t } = useUILanguage();
-  const { acceptRequest, declineRequest } = useFriends();
+  const { acceptRequest, declineRequest, requests, requestsLoaded, friends } = useFriends();
   const markRead = useMarkRead();
   const deleteNotif = useDeleteNotification();
   const qc = useQueryClient();
   const [acting, setActing] = useState(false);
   // Track whether the user acted on this item so we can show inline confirmation.
   const [accepted, setAccepted] = useState(false);
+  const isFriendRequestPending =
+    notif.type !== 'friend_request' ||
+    !requestsLoaded ||
+    requests.some(r => r.id === (notif.data.friendshipId as string));
+  // True only if the friendship is now accepted (used to show "friend added" correctly).
+  const isFriendNow =
+    notif.type === 'friend_request' &&
+    friends.some(f => f.id === (notif.data.friendshipId as string));
 
   async function handleAcceptFriend() {
     setActing(true);
@@ -127,10 +135,6 @@ function NotificationItem({ notif }: { notif: AppNotification }) {
     }
   }
 
-  async function handleDismiss() {
-    await markRead.mutateAsync(notif.id);
-  }
-
   const isActionable =
     notif.type === 'friend_request' || notif.type === 'collaborator_invited';
 
@@ -149,7 +153,7 @@ function NotificationItem({ notif }: { notif: AppNotification }) {
         </p>
         <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(notif.createdAt, t)}</p>
 
-        {isActionable && !accepted && !notif.isRead && (
+        {isActionable && !accepted && !notif.isRead && isFriendRequestPending && (
           <div className="flex gap-2 mt-2">
             <Button
               size="sm"
@@ -172,7 +176,12 @@ function NotificationItem({ notif }: { notif: AppNotification }) {
           </div>
         )}
 
-        {isActionable && (accepted || notif.isRead) && (
+        {isActionable && (
+          accepted ||
+          (notif.type !== 'friend_request' && notif.isRead) ||
+          (notif.type === 'friend_request' && notif.isRead && isFriendNow) ||
+          (!isFriendRequestPending && isFriendNow)
+        ) && (
           <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 flex items-center gap-1">
             <Check className="w-3 h-3" />
             {acceptedLabel}
@@ -180,15 +189,6 @@ function NotificationItem({ notif }: { notif: AppNotification }) {
         )}
       </div>
 
-      {!isActionable && !notif.isRead && (
-        <button
-          onClick={handleDismiss}
-          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 mt-0.5"
-          title={t.markAsRead}
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      )}
     </div>
   );
 }
@@ -196,13 +196,15 @@ function NotificationItem({ notif }: { notif: AppNotification }) {
 export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
   const { t } = useUILanguage();
   const { data: notifications = [] } = useNotifications();
-  const markAllRead = useMarkAllRead();
+  const markPassiveRead = useMarkPassiveRead();
 
   const unread = notifications.filter(n => !n.isRead);
 
-  async function handleMarkAllRead() {
-    await markAllRead.mutateAsync();
-  }
+  // Auto-mark non-actionable notifications as read when the panel opens.
+  useEffect(() => {
+    markPassiveRead.mutate();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
@@ -217,31 +219,18 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
-          {unread.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-xs text-muted-foreground px-2"
-              onClick={handleMarkAllRead}
-              disabled={markAllRead.isPending}
-            >
-              {t.markAllRead}
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-6 h-6 p-0 text-muted-foreground"
-            onClick={onClose}
-          >
-            <X className="w-3.5 h-3.5" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-6 h-6 p-0 text-muted-foreground"
+          onClick={onClose}
+        >
+          <X className="w-3.5 h-3.5" />
+        </Button>
       </div>
 
       {/* List */}
-      <div className="overflow-y-auto max-h-[420px]">
+      <div className="overflow-y-auto max-h-[420px] no-scrollbar">
         {notifications.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">{t.noNotifications}</p>
         ) : (

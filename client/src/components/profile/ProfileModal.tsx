@@ -129,12 +129,11 @@ export default function ProfileModal({ open, onClose }: Props) {
   }
 
   async function saveProfile() {
-    if (!username.trim() || !email.trim()) { toast.error(t.toastUsernameEmailRequired); return; }
+    if (!username.trim()) { toast.error(t.toastUsernameRequired); return; }
     setSavingProfile(true);
     try {
       const { data } = await api.put<{ id: string; email: string; username: string; avatar?: string | null }>('/user/profile', {
         username: username.trim(),
-        email: email.trim(),
         avatar: user?.avatar,
       });
       updateUser(data);
@@ -257,7 +256,9 @@ export default function ProfileModal({ open, onClose }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>{t.emailLabel}</Label>
-              <Input type="email" value={email} onChange={e => setEmail(e.target.value)} className="focus-visible:ring-amber-400" />
+              <div className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm text-muted-foreground select-none cursor-default">
+                {email}
+              </div>
             </div>
             <Button
               type="submit"

@@ -114,6 +114,9 @@ export default function FriendsPage() {
     try {
       const { data } = await api.get<UserResult[]>('/friends/search', { params: { q } });
       setSearchResults(data);
+    } catch {
+      toast.error(t.searchError);
+      setSearchResults([]);
     } finally {
       setSearching(false);
     }
@@ -121,10 +124,12 @@ export default function FriendsPage() {
 
   async function handleSendRequest(username: string, userId: string) {
     try {
-      await sendRequest(username);
+      await sendRequest(userId);
       setSentTo(prev => new Set(prev).add(userId));
       toast.success(t.friendRequestSent.replace('{username}', username));
     } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 429) return; // global interceptor already showed a toast
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t.friendRequestFailed;
       toast.error(msg);
     }
@@ -140,7 +145,11 @@ export default function FriendsPage() {
   }
 
   async function handleDecline(id: string) {
-    await declineRequest(id);
+    try {
+      await declineRequest(id);
+    } catch {
+      toast.error(t.friendRequestFailed);
+    }
   }
 
   async function handleUnfriend(id: string) {

@@ -19,6 +19,11 @@ export class NotificationsController {
     return this.notificationsService.markAllRead(req.user.id);
   }
 
+  @Post('read-passive')
+  markPassiveRead(@Req() req: { user: { id: string } }) {
+    return this.notificationsService.markPassiveRead(req.user.id);
+  }
+
   @Patch(':id/read')
   markRead(@Param('id') id: string, @Req() req: { user: { id: string } }) {
     return this.notificationsService.markRead(id, req.user.id);
@@ -27,5 +32,21 @@ export class NotificationsController {
   @Delete(':id')
   remove(@Param('id') id: string, @Req() req: { user: { id: string } }) {
     return this.notificationsService.deleteNotification(id, req.user.id);
+  }
+
+  @Patch('read-by-friendship/:friendshipId')
+  markReadByFriendship(
+    @Param('friendshipId') friendshipId: string,
+    @Req() req: { user: { id: string } },
+  ) {
+    return this.notificationsService.markReadByFriendshipId(friendshipId, req.user.id);
+  }
+
+  @Delete('by-friendship/:friendshipId')
+  deleteByFriendship(
+    @Param('friendshipId') friendshipId: string,
+    @Req() req: { user: { id: string } },
+  ) {
+    return this.notificationsService.deleteByFriendshipId(friendshipId, req.user.id);
   }
 }

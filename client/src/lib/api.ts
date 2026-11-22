@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from 'sonner';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
@@ -15,17 +16,25 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Only treat 401 as "session expired" when it comes from a protected endpoint.
-    // Auth endpoints (/auth/login, /auth/register, etc.) legitimately return 401
-    // for bad credentials — those should be handled by the caller, not auto-logout.
     const url: string = error.config?.url || '';
-    if (error.response?.status === 401 && !url.includes('/auth/')) {
+    const status: number | undefined = error.response?.status;
+
+    // Auto-logout on 401 from protected endpoints (auth routes handle their own 401s).
+    if (status === 401 && !url.includes('/auth/')) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('auth_user');
       sessionStorage.removeItem('auth_token');
       sessionStorage.removeItem('auth_user');
       window.location.href = '/sign-in';
     }
+
+    // Global 429 handler for non-auth routes — auth pages show this inline themselves.
+    if (status === 429 && !url.includes('/auth/')) {
+      const lang = localStorage.getItem('ui_language') || 'en';
+      const msg = lang === 'he' ? 'יותר מדי בקשות. נסה שוב מאוחר יותר.' : 'Too many requests. Please try again later.';
+      toast.error(msg);
+    }
+
     return Promise.reject(error);
   }
 );

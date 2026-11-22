@@ -36,9 +36,14 @@ export default function RegisterPage() {
       await register(email, username, password, uiLang);
       setRegistered(true);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string; error?: string } } })?.response?.data?.message
-        ?? (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg || 'Registration failed');
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 429) {
+        setError(t.tooManyRequests);
+      } else {
+        const msg = (err as { response?: { data?: { message?: string; error?: string } } })?.response?.data?.message
+          ?? (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+        setError(msg || 'Registration failed');
+      }
     } finally {
       setLoading(false);
     }
