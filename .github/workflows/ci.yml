@@ -8,7 +8,7 @@ on:
 
 jobs:
   server:
-    name: Server — tests & build
+    name: Server — typecheck & build
     runs-on: ubuntu-latest
     defaults:
       run:
