@@ -40,7 +40,7 @@ function apiToDeletedSong(data: Record<string, unknown>): DeletedSong {
 
 export function useSongLibrary() {
   const client = useQueryClient();
-  const { uiLang, t } = useUILanguage();
+  const { t } = useUILanguage();
 
   const { data: songs = [], isLoading: loading } = useQuery({
     queryKey: SONGS_KEY,

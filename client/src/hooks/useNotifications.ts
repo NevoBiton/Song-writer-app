@@ -22,14 +22,14 @@ interface NotificationsPage {
 }
 
 export function useNotifications() {
-  return useInfiniteQuery<NotificationsPage, Error, NotificationsPage, ['notifications'], string | undefined>({
+  return useInfiniteQuery({
     queryKey: ['notifications'],
-    queryFn: ({ pageParam }) =>
+    queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
       api.get<NotificationsPage>('/notifications', {
         params: pageParam ? { cursor: pageParam } : {},
       }).then(r => r.data),
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    initialPageParam: undefined,
+    getNextPageParam: (lastPage: NotificationsPage) => lastPage.nextCursor ?? undefined,
+    initialPageParam: undefined as string | undefined,
   });
 }
 
