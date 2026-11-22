@@ -94,12 +94,12 @@ describe('NotificationsService', () => {
   // ── getForUser ─────────────────────────────────────────────────────────────
 
   describe('getForUser()', () => {
-    it('returns notifications for the user ordered by createdAt desc', async () => {
+    it('returns paginated notifications with nextCursor null when no more pages', async () => {
       mockDb.db.select.mockReturnValue(selectOrderLimitChain([mockNotification]));
 
       const result = await service.getForUser(userId);
 
-      expect(result).toEqual([mockNotification]);
+      expect(result).toEqual({ items: [mockNotification], nextCursor: null });
     });
   });
 

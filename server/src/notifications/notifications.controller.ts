@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Delete, Post, Param, UseGuards, Req,
+  Controller, Get, Patch, Delete, Post, Param, Query, UseGuards, Req,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { NotificationsService } from './notifications.service';
@@ -10,8 +10,11 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
-  getAll(@Req() req: { user: { id: string } }) {
-    return this.notificationsService.getForUser(req.user.id);
+  getAll(
+    @Req() req: { user: { id: string } },
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.notificationsService.getForUser(req.user.id, cursor);
   }
 
   @Post('read-all')

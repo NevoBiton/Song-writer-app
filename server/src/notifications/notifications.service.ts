@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq, and, desc, notInArray, sql } from 'drizzle-orm';
+import { eq, and, desc, lt, notInArray, sql } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { notifications } from '../db/schema';
 import { AppGateway } from '../gateway/app.gateway';
@@ -31,13 +31,23 @@ export class NotificationsService {
     return notif;
   }
 
-  async getForUser(userId: string) {
-    return this.db.db
+  async getForUser(userId: string, cursor?: string) {
+    const PAGE = 20;
+    const baseCondition = eq(notifications.userId, userId);
+    const cursorCondition = cursor ? lt(notifications.createdAt, new Date(cursor)) : undefined;
+
+    const rows = await this.db.db
       .select()
       .from(notifications)
-      .where(eq(notifications.userId, userId))
+      .where(cursorCondition ? and(baseCondition, cursorCondition) : baseCondition)
       .orderBy(desc(notifications.createdAt))
-      .limit(50);
+      .limit(PAGE + 1); // fetch one extra to know whether more pages exist
+
+    const hasMore = rows.length > PAGE;
+    const items = hasMore ? rows.slice(0, PAGE) : rows;
+    const nextCursor = hasMore ? items[items.length - 1].createdAt.toISOString() : null;
+
+    return { items, nextCursor };
   }
 
   async markRead(notificationId: string, userId: string) {

@@ -947,7 +947,7 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
               <div>
                 <label className="text-gray-500 text-xs block mb-1">{t.createdLabel}</label>
                 <span className="text-muted-foreground text-xs">
-                  {new Date(song.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {new Date(song.createdAt).toLocaleDateString(uiLang === 'he' ? 'he-IL' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
               </div>
             )}
@@ -1130,7 +1130,10 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
               {SECTION_TYPES.map(type => (
                 <DropdownMenuItem
                   key={type}
-                  onClick={() => addSection(type)}
+                  onClick={() => {
+                    const count = song.sections.filter(s => s.type === type).length + 1;
+                    addSection(type, `${sectionTypeLabel(type, t)} ${count}`);
+                  }}
                   className={`capitalize font-medium md:text-base md:py-2 lg:text-xl lg:py-3 ${SECTION_MENU_COLORS[type]}`}
                 >
                   {sectionTypeLabel(type, t)}

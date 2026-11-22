@@ -151,15 +151,11 @@ export function useSong(
     });
   }, [song]);
 
-  const addSection = useCallback((type: Section['type']) => {
-    const labels: Record<Section['type'], string> = {
-      verse: 'Verse', chorus: 'Chorus', bridge: 'Bridge',
-      intro: 'Intro', outro: 'Outro', custom: 'Section',
-    };
+  const addSection = useCallback((type: Section['type'], label?: string) => {
     const newSection: Section = {
       id: uid(),
       type,
-      label: labels[type],
+      ...(label ? { label } : {}),
       lines: [],
     };
     commit({ ...song, sections: [...song.sections, newSection] });

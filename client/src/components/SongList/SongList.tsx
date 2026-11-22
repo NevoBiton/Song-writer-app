@@ -8,6 +8,7 @@ import { useUILanguage } from '@/context/UILanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import { ButtonWithIcon } from '@/components/ButtonWithIcon';
 import type { T } from '@/context/UILanguageContext';
+import type { Section } from '../../types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -44,11 +45,11 @@ function timeAgo(iso: string | undefined, t: T): string {
   return `${t.timeAgoPrefix}${days}${t.dAgo}`;
 }
 
-function formatDate(iso: string | undefined): string {
+function formatDate(iso: string | undefined, locale: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function daysUntilExpiry(iso: string): number {
@@ -78,6 +79,14 @@ function formatSongForShare(song: Song): string {
 
 const LANG_LABELS: Record<string, string> = { en: 'EN', he: 'עב', mixed: 'EN/עב' };
 
+function sectionTypeLabel(type: Section['type'], t: T): string {
+  const map: Record<Section['type'], string> = {
+    verse: t.sectionVerse, chorus: t.sectionChorus, bridge: t.sectionBridge,
+    intro: t.sectionIntro, outro: t.sectionOutro, custom: t.sectionCustom,
+  };
+  return map[type] ?? type;
+}
+
 const SECTION_TYPE_COLORS: Record<string, string> = {
   verse: 'bg-blue-100 text-blue-700',
   chorus: 'bg-amber-100 text-amber-700',
@@ -98,7 +107,8 @@ export default function SongList({
   onRestoreSong,
   onPermanentDeleteSong,
 }: Props) {
-  const { t } = useUILanguage();
+  const { t, uiLang } = useUILanguage();
+  const dateLocale = uiLang === 'he' ? 'he-IL' : 'en-US';
   const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<{ songId: string; x: number; y: number } | null>(null);
@@ -263,7 +273,7 @@ export default function SongList({
                         key={section.id}
                         className={`text-xs px-1.5 py-0.5 rounded font-medium ${SECTION_TYPE_COLORS[section.type] || SECTION_TYPE_COLORS.custom}`}
                       >
-                        {section.label || section.type}
+                        {section.label || sectionTypeLabel(section.type, t)}
                       </span>
                     ))}
                     {song.sections.length > 4 && (
@@ -275,7 +285,7 @@ export default function SongList({
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                   <div className="flex flex-col gap-0.5">
                     {song.createdAt && (
-                      <span className="text-muted-foreground text-xs" dir="ltr">{t.createdLabel} {formatDate(song.createdAt)}</span>
+                      <span className="text-muted-foreground text-xs" dir="ltr">{t.createdLabel} {formatDate(song.createdAt, dateLocale)}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
