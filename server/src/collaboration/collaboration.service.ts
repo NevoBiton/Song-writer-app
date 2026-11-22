@@ -206,6 +206,11 @@ export class CollaborationService {
     // Notify the removed user
     this.gateway.emitToUser(targetUserId, 'collaborator_removed', { songId, songTitle: song.title });
 
+    // When a collaborator leaves voluntarily, also notify the owner so their panel updates
+    if (isSelfRemoval) {
+      this.gateway.emitToUser(song.userId, 'collaborator_removed', { songId, songTitle: song.title });
+    }
+
     return { ok: true };
   }
 

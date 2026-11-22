@@ -31,7 +31,6 @@ export class FriendsService {
   }
 
   async sendRequest(requesterId: string, addresseeEmail: string) {
-    // Find target user by email (guaranteed unique)
     const [addressee] = await this.db.db
       .select({ id: users.id, username: users.username })
       .from(users)
@@ -101,6 +100,34 @@ export class FriendsService {
     return rows;
   }
 
+  async getSentRequests(userId: string) {
+    const rows = await this.db.db
+      .select({
+        id: friendships.id,
+        addresseeUsername: users.username,
+        addresseeAvatar: users.avatar,
+        createdAt: friendships.createdAt,
+      })
+      .from(friendships)
+      .innerJoin(users, eq(users.id, friendships.addresseeId))
+      .where(and(eq(friendships.requesterId, userId), eq(friendships.status, 'pending')));
+
+    return rows;
+  }
+
+  async cancelRequest(friendshipId: string, userId: string) {
+    const [friendship] = await this.db.db
+      .select()
+      .from(friendships)
+      .where(eq(friendships.id, friendshipId));
+
+    if (!friendship) throw new NotFoundException('Friend request not found');
+    if (friendship.requesterId !== userId) throw new ForbiddenException();
+
+    await this.db.db.delete(friendships).where(eq(friendships.id, friendshipId));
+    return { ok: true };
+  }
+
   async acceptRequest(friendshipId: string, userId: string) {
     const [friendship] = await this.db.db
       .select()
@@ -153,6 +180,9 @@ export class FriendsService {
       .set({ status: 'declined' })
       .where(eq(friendships.id, friendshipId))
       .returning();
+
+    // Notify requester so their pending-sent list updates in real-time
+    this.gateway.emitToUser(friendship.requesterId, 'friend_request_declined', { friendshipId });
 
     return updated;
   }

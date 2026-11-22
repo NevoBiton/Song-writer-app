@@ -39,6 +39,14 @@ export function useMarkAllRead() {
   });
 }
 
+export function useMarkPassiveRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post('/notifications/read-passive'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
 export function useDeleteNotification() {
   const qc = useQueryClient();
   return useMutation({

@@ -70,6 +70,13 @@ export interface FriendRequest {
   createdAt: string;
 }
 
+export interface SentRequest {
+  id: string;           // friendship ID
+  addresseeUsername: string;
+  addresseeAvatar?: string;
+  createdAt: string;
+}
+
 export interface Collaborator {
   id: string;
   userId: string;

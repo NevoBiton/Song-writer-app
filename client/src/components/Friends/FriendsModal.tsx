@@ -16,7 +16,7 @@ interface Props {
 
 export function FriendsModal({ open, onClose }: Props) {
   const { t } = useUILanguage();
-  const { friends, requests, sendRequest, acceptRequest, declineRequest, unfriend } = useFriends();
+  const { friends, requests, sentRequests, sendRequest, acceptRequest, declineRequest, cancelRequest, unfriend } = useFriends();
 
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
@@ -26,6 +26,10 @@ export function FriendsModal({ open, onClose }: Props) {
   async function handleAdd() {
     const val = email.trim();
     if (!val) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+      setError(t.errInvalidEmail);
+      return;
+    }
     setSending(true);
     setError('');
     try {
@@ -90,6 +94,33 @@ export function FriendsModal({ open, onClose }: Props) {
             </div>
             {error && <p className="text-xs text-destructive">{error}</p>}
           </div>
+
+          {/* ── Sent / outgoing pending ──────────────────────── */}
+          {sentRequests.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">{t.pendingSentTitle}</p>
+              <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
+                {sentRequests.map(req => (
+                  <div key={req.id} className="flex items-center gap-3 px-3 py-3">
+                    <img
+                      src={getAvatarUrl(req.addresseeAvatar, req.addresseeUsername)}
+                      alt={req.addresseeUsername}
+                      className="w-8 h-8 rounded-full border border-border object-cover flex-shrink-0"
+                    />
+                    <span className="flex-1 text-sm font-medium truncate">{req.addresseeUsername}</span>
+                    <span className="text-xs text-muted-foreground mr-1">{t.pendingSentTitle}</span>
+                    <button
+                      onClick={() => cancelRequest(req.id)}
+                      className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/70 flex items-center justify-center transition-colors flex-shrink-0"
+                      title={t.cancelRequest}
+                    >
+                      <X className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Pending requests ─────────────────────────────── */}
           {requests.length > 0 && (

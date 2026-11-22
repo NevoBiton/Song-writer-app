@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, notInArray, sql } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { notifications } from '../db/schema';
 import { AppGateway } from '../gateway/app.gateway';
@@ -56,10 +56,56 @@ export class NotificationsService {
     return { ok: true };
   }
 
+  async markPassiveRead(userId: string) {
+    // Mark only non-actionable notifications as read.
+    // friend_request and collaborator_invited stay unread until the user acts on them.
+    await this.db.db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          notInArray(notifications.type, ['friend_request', 'collaborator_invited']),
+        ),
+      );
+    return { ok: true };
+  }
+
   async deleteNotification(notificationId: string, userId: string) {
     await this.db.db
       .delete(notifications)
       .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
+    return { ok: true };
+  }
+
+  /** Mark a friend_request notification as read by its friendshipId (used when
+   *  the user accepts the request from outside the notification panel). */
+  async markReadByFriendshipId(friendshipId: string, userId: string) {
+    await this.db.db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          eq(notifications.type, 'friend_request'),
+          sql`${notifications.data}->>'friendshipId' = ${friendshipId}`,
+        ),
+      );
+    return { ok: true };
+  }
+
+  /** Delete a friend_request notification by its friendshipId (used when the
+   *  user declines the request from outside the notification panel). */
+  async deleteByFriendshipId(friendshipId: string, userId: string) {
+    await this.db.db
+      .delete(notifications)
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          eq(notifications.type, 'friend_request'),
+          sql`${notifications.data}->>'friendshipId' = ${friendshipId}`,
+        ),
+      );
     return { ok: true };
   }
 }

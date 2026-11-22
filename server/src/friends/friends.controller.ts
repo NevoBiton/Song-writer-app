@@ -39,6 +39,16 @@ export class FriendsController {
     return this.friendsService.getPendingRequests(req.user.id);
   }
 
+  @Get('sent-requests')
+  getSentRequests(@Req() req: JwtRequest) {
+    return this.friendsService.getSentRequests(req.user.id);
+  }
+
+  @Delete(':id/cancel')
+  cancelRequest(@Param('id') id: string, @Req() req: JwtRequest) {
+    return this.friendsService.cancelRequest(id, req.user.id);
+  }
+
   @Post(':id/accept')
   @HttpCode(HttpStatus.OK)
   accept(@Param('id') id: string, @Req() req: JwtRequest) {

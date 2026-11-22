@@ -24,6 +24,7 @@ function OnlineDot({ online }: { online: boolean }) {
 }
 
 function FriendRow({ friend, onUnfriend }: { friend: Friend; onUnfriend: (id: string) => void }) {
+  const { t } = useUILanguage();
   return (
     <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-accent/50 transition-colors">
       <div className="relative flex-shrink-0">
@@ -38,14 +39,14 @@ function FriendRow({ friend, onUnfriend }: { friend: Friend; onUnfriend: (id: st
       </div>
       <span className="flex-1 font-medium text-sm">{friend.username}</span>
       {friend.online && (
-        <span className="text-xs text-green-600 dark:text-green-400 font-medium">online</span>
+        <span className="text-xs text-green-600 dark:text-green-400 font-medium">{t.online}</span>
       )}
       <Button
         variant="ghost"
         size="sm"
         className="w-7 h-7 p-0 text-muted-foreground hover:text-destructive"
         onClick={() => onUnfriend(friend.id)}
-        title="Remove friend"
+        title={t.confirmUnfriend}
       >
         <UserMinus className="w-3.5 h-3.5" />
       </Button>
@@ -62,6 +63,7 @@ function RequestRow({
   onAccept: (id: string) => void;
   onDecline: (id: string) => void;
 }) {
+  const { t } = useUILanguage();
   return (
     <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-accent/50">
       <img
@@ -75,7 +77,7 @@ function RequestRow({
         size="sm"
         className="w-7 h-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
         onClick={() => onAccept(req.id)}
-        title="Accept"
+        title={t.accept}
       >
         <Check className="w-4 h-4" />
       </Button>
@@ -84,7 +86,7 @@ function RequestRow({
         size="sm"
         className="w-7 h-7 p-0 text-muted-foreground hover:text-destructive"
         onClick={() => onDecline(req.id)}
-        title="Decline"
+        title={t.reject}
       >
         <X className="w-4 h-4" />
       </Button>
@@ -112,6 +114,9 @@ export default function FriendsPage() {
     try {
       const { data } = await api.get<UserResult[]>('/friends/search', { params: { q } });
       setSearchResults(data);
+    } catch {
+      toast.error(t.searchError);
+      setSearchResults([]);
     } finally {
       setSearching(false);
     }
@@ -119,10 +124,12 @@ export default function FriendsPage() {
 
   async function handleSendRequest(username: string, userId: string) {
     try {
-      await sendRequest(username);
+      await sendRequest(userId);
       setSentTo(prev => new Set(prev).add(userId));
       toast.success(t.friendRequestSent.replace('{username}', username));
     } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 429) return; // global interceptor already showed a toast
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? t.friendRequestFailed;
       toast.error(msg);
     }
@@ -138,7 +145,11 @@ export default function FriendsPage() {
   }
 
   async function handleDecline(id: string) {
-    await declineRequest(id);
+    try {
+      await declineRequest(id);
+    } catch {
+      toast.error(t.friendRequestFailed);
+    }
   }
 
   async function handleUnfriend(id: string) {

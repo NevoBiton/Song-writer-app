@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Body, Query, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -13,6 +14,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Throttle({ default: { ttl: 3_600_000, limit: 5 } })
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User created, returns JWT token' })
   @ApiResponse({ status: 409, description: 'Email or username already in use' })
@@ -40,6 +42,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(200)
+  @Throttle({ default: { ttl: 3_600_000, limit: 5 } })
   @ApiOperation({ summary: 'Send a password reset email' })
   @ApiResponse({ status: 200, description: 'Reset email sent (or silently ignored if email not found)' })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
