@@ -72,7 +72,7 @@ export default function ProfileModal({ open, onClose }: Props) {
 
   // Profile tab
   const [username, setUsername] = useState(user?.username || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const email = user?.email || '';
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Avatar tab

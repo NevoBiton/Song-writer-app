@@ -144,12 +144,9 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
   }, [socket, refreshFriends, queryClient]);
 
   const sendRequest = useCallback(async (email: string) => {
-    const { data } = await api.post<{ id: string; addresseeId: string }>(
-      '/friends/request', { email }
-    );
+    await api.post('/friends/request', { email });
     // Refresh sent requests to get addressee username
     await refreshRequests();
-    return data;
   }, [refreshRequests]);
 
   const acceptRequest = useCallback(async (id: string) => {
