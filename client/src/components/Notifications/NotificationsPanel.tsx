@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Check, X, Bell, Music2, FileText, CheckCircle, XCircle, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useUILanguage } from '@/context/UILanguageContext';
+import { useUILanguage, T } from '@/context/UILanguageContext';
 import { useFriends } from '@/context/FriendsContext';
 import {
   useNotifications, useMarkRead, useMarkAllRead, useDeleteNotification,
@@ -15,14 +15,14 @@ interface NotificationsPanelProps {
   onClose: () => void;
 }
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, t: T): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t.justNow;
+  if (mins < 60) return `${t.timeAgoPrefix}${mins}${t.mAgo}`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  if (hrs < 24) return `${t.timeAgoPrefix}${hrs}${t.hAgo}`;
+  return `${t.timeAgoPrefix}${Math.floor(hrs / 24)}${t.dAgo}`;
 }
 
 function NotificationIcon({ type, acted }: { type: AppNotification['type']; acted?: boolean }) {
@@ -147,7 +147,7 @@ function NotificationItem({ notif }: { notif: AppNotification }) {
         <p className="text-sm leading-snug">
           <NotificationText notif={notif} />
         </p>
-        <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(notif.createdAt)}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(notif.createdAt, t)}</p>
 
         {isActionable && !accepted && !notif.isRead && (
           <div className="flex gap-2 mt-2">
@@ -184,7 +184,7 @@ function NotificationItem({ notif }: { notif: AppNotification }) {
         <button
           onClick={handleDismiss}
           className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 mt-0.5"
-          title="Mark as read"
+          title={t.markAsRead}
         >
           <X className="w-3.5 h-3.5" />
         </button>

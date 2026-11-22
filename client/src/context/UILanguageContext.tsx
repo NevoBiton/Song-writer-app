@@ -298,6 +298,7 @@ export const translations = {
     notificationsTitle: 'Notifications',
     noNotifications: 'No notifications yet',
     markAllRead: 'Mark all read',
+    markAsRead: 'Mark as read',
     notifFriendRequest: 'sent you a friend request',
     notifFriendAccepted: 'accepted your friend request',
     notifCollabInvited: 'invited you to collaborate on',
@@ -325,6 +326,8 @@ export const translations = {
     syncOverwriteConfirm: 'Discard your edits?',
     versionRestored: 'Version restored',
     restoreVersionConfirm: 'Overwrite current song with this version?',
+    undo: 'Undo',
+    redo: 'Redo',
   },
   he: {
     // App
@@ -621,6 +624,7 @@ export const translations = {
     notificationsTitle: 'התראות',
     noNotifications: 'אין התראות עדיין',
     markAllRead: 'סמן הכל כנקרא',
+    markAsRead: 'סמן כנקרא',
     notifFriendRequest: 'שלח לך בקשת חברות',
     notifFriendAccepted: 'אישר את בקשת החברות שלך',
     notifCollabInvited: 'הזמין אותך לשתף פעולה על',
@@ -648,6 +652,8 @@ export const translations = {
     syncOverwriteConfirm: 'לוותר על העריכות?',
     versionRestored: 'הגרסה שוחזרה',
     restoreVersionConfirm: 'לדרוס את השיר הנוכחי בגרסה זו?',
+    undo: 'בטל',
+    redo: 'שחזר',
   },
 } as const;
 

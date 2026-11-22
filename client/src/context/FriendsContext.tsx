@@ -100,12 +100,19 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     }
 
+    function onCollaboratorRemoved() {
+      // This user was removed from (or left) a song — update the songs list so it
+      // disappears without a manual refresh
+      queryClient.invalidateQueries({ queryKey: ['songs'] });
+    }
+
     socket.on('friend_request', onFriendRequest);
     socket.on('friend_accepted', onFriendAccepted);
     socket.on('friend_online', onFriendOnline);
     socket.on('friend_offline', onFriendOffline);
     socket.on('friend_removed', onFriendRemoved);
     socket.on('new_notification', onNewNotification);
+    socket.on('collaborator_removed', onCollaboratorRemoved);
 
     return () => {
       socket.off('friend_request', onFriendRequest);
@@ -114,6 +121,7 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
       socket.off('friend_offline', onFriendOffline);
       socket.off('friend_removed', onFriendRemoved);
       socket.off('new_notification', onNewNotification);
+      socket.off('collaborator_removed', onCollaboratorRemoved);
     };
   }, [socket, refreshFriends, queryClient]);
 

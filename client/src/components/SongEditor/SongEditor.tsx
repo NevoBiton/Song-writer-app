@@ -258,15 +258,36 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
       toast.info(`${t.newProposalFrom} ${data.proposedBy.username}`);
     }
 
+    // Owner: someone accepted an invite → refresh collaborators list
+    function onCollaboratorJoined(data: { songId: string }) {
+      if (data.songId !== song.id) return;
+      queryClient.invalidateQueries({ queryKey: ['collaborators', song.id] });
+    }
+
+    // Collaborator: removed by owner → go back to library
+    // Owner: a collaborator left voluntarily → refresh collaborators list
+    function onCollaboratorRemoved(data: { songId: string }) {
+      if (data.songId !== song.id) return;
+      if (isCollaboratorRef.current) {
+        onBack();
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['collaborators', song.id] });
+      }
+    }
+
     socket.on('song_updated', onSongUpdated);
     socket.on('proposal_rejected', onProposalRejected);
     socket.on('song_proposal', onSongProposal);
+    socket.on('collaborator_joined', onCollaboratorJoined);
+    socket.on('collaborator_removed', onCollaboratorRemoved);
     return () => {
       socket.off('song_updated', onSongUpdated);
       socket.off('proposal_rejected', onProposalRejected);
       socket.off('song_proposal', onSongProposal);
+      socket.off('collaborator_joined', onCollaboratorJoined);
+      socket.off('collaborator_removed', onCollaboratorRemoved);
     };
-  }, [socket, song.id, resetSections, t.proposalRejected, t.newProposalFrom, queryClient]);
+  }, [socket, song.id, resetSections, t.proposalRejected, t.newProposalFrom, queryClient, onBack]);
 
   const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
 
@@ -645,13 +666,13 @@ export default function SongEditor({ song: initialSong, onSave, onBack, isMobile
           <div className="flex items-center gap-0.5 px-2 pb-2 md:pb-3 lg:pb-4 lg:gap-1">
             <Button
               variant="ghost" size="icon" onClick={undo} disabled={!canUndo}
-              title="Undo" className="text-muted-foreground h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12"
+              title={t.undo} className="text-muted-foreground h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12"
             >
               <Undo2 className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />
             </Button>
             <Button
               variant="ghost" size="icon" onClick={redo} disabled={!canRedo}
-              title="Redo" className="text-muted-foreground h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12"
+              title={t.redo} className="text-muted-foreground h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12"
             >
               <Redo2 className="w-4 h-4 md:w-5 md:h-5 lg:w-7 lg:h-7" />
             </Button>
