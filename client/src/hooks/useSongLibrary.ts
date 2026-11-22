@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Song } from '../types';
 import { parseChordProDocument } from '../utils/chordParser';
 import api from '@/lib/api';
+import { useUILanguage } from '@/context/UILanguageContext';
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -39,6 +40,7 @@ function apiToDeletedSong(data: Record<string, unknown>): DeletedSong {
 
 export function useSongLibrary() {
   const client = useQueryClient();
+  const { t } = useUILanguage();
 
   const { data: songs = [], isLoading: loading } = useQuery({
     queryKey: SONGS_KEY,
@@ -57,7 +59,7 @@ export function useSongLibrary() {
           {
             id: uid(),
             type: 'verse',
-            label: language === 'he' ? 'בית 1' : 'Verse 1',
+            label: `${t.sectionVerse} 1`,
             lines: [],
           },
         ],

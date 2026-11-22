@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Check, X, Bell, Music2, FileText, CheckCircle, XCircle, Users } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Check, X, Bell, Music2, FileText, CheckCircle, XCircle, Users, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUILanguage, T } from '@/context/UILanguageContext';
 import { useFriends } from '@/context/FriendsContext';
@@ -195,9 +195,11 @@ function NotificationItem({ notif }: { notif: AppNotification }) {
 
 export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
   const { t } = useUILanguage();
-  const { data: notifications = [] } = useNotifications();
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useNotifications();
   const markPassiveRead = useMarkPassiveRead();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
+  const notifications = data?.pages.flatMap(p => p.items) ?? [];
   const unread = notifications.filter(n => !n.isRead);
 
   // Auto-mark non-actionable notifications as read when the panel opens.
@@ -205,6 +207,15 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
     markPassiveRead.mutate();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load next page when the user scrolls near the bottom.
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el || !hasNextPage || isFetchingNextPage) return;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) {
+      fetchNextPage();
+    }
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -230,11 +241,22 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
       </div>
 
       {/* List */}
-      <div className="overflow-y-auto max-h-[420px] no-scrollbar">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="overflow-y-auto max-h-[420px] no-scrollbar"
+      >
         {notifications.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">{t.noNotifications}</p>
         ) : (
           notifications.map(n => <NotificationItem key={n.id} notif={n} />)
+        )}
+
+        {/* Loading spinner shown while fetching the next page */}
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-3">
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          </div>
         )}
       </div>
     </div>

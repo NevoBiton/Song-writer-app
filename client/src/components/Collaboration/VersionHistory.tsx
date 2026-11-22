@@ -13,7 +13,8 @@ interface VersionHistoryProps {
 }
 
 export function VersionHistory({ songId, isOwner, onRestore }: VersionHistoryProps) {
-  const { t } = useUILanguage();
+  const { t, uiLang } = useUILanguage();
+  const dateLocale = uiLang === 'he' ? 'he-IL' : 'en-US';
   const { data: versions = [], isLoading } = useVersions(songId);
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
@@ -54,7 +55,7 @@ export function VersionHistory({ songId, isOwner, onRestore }: VersionHistoryPro
               {t.proposedBy} {v.username}
             </span>
             <span className="text-xs text-muted-foreground flex-shrink-0">
-              {new Date(v.createdAt).toLocaleDateString(undefined, {
+              {new Date(v.createdAt).toLocaleDateString(dateLocale, {
                 month: 'short',
                 day: 'numeric',
               })}

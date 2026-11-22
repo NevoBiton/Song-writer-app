@@ -27,7 +27,7 @@ jobs:
         run: npm ci
 
       - name: Test
-        run: npm test -- --no-coverage
+        run: npm test -- --no-coverage --forceExit
 
       - name: Build (tsc)
         run: npm run build

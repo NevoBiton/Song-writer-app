@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
 export interface AppNotification {
@@ -16,10 +16,20 @@ export interface AppNotification {
   createdAt: string;
 }
 
+interface NotificationsPage {
+  items: AppNotification[];
+  nextCursor: string | null;
+}
+
 export function useNotifications() {
-  return useQuery<AppNotification[]>({
+  return useInfiniteQuery({
     queryKey: ['notifications'],
-    queryFn: () => api.get('/notifications').then(r => r.data),
+    queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
+      api.get<NotificationsPage>('/notifications', {
+        params: pageParam ? { cursor: pageParam } : {},
+      }).then(r => r.data),
+    getNextPageParam: (lastPage: NotificationsPage) => lastPage.nextCursor ?? undefined,
+    initialPageParam: undefined as string | undefined,
   });
 }
 

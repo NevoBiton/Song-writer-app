@@ -45,8 +45,8 @@ export function AppLayout({ children, activeSong, onBackToLibrary, raw }: AppLay
   const location = useLocation();
 
   const { pendingCount } = useFriends();
-  const { data: notificationsList = [] } = useNotifications();
-  const unreadNotifCount = notificationsList.filter(n => !n.isRead).length;
+  const { data: notificationsData } = useNotifications();
+  const unreadNotifCount = (notificationsData?.pages.flatMap(p => p.items) ?? []).filter(n => !n.isRead).length;
   const displayName = user?.username || user?.email?.split('@')[0] || 'User';
   const email = user?.email || '';
   const avatarUrl = getAvatarUrl(user?.avatar, displayName);
