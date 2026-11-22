@@ -8,7 +8,7 @@ on:
 
 jobs:
   server:
-    name: Server — typecheck & build
+    name: Render — tests & build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -27,13 +27,20 @@ jobs:
         run: npm ci
 
       - name: Test
-        run: npm test -- --no-coverage
+        run: npm test -- --no-coverage --forceExit
 
       - name: Build (tsc)
         run: npm run build
 
+      # Triggers a Render deploy when this job passes on a push to main.
+      # Add the hook URL in: GitHub repo → Settings → Secrets → RENDER_DEPLOY_HOOK_URL
+      # Get the URL from: Render dashboard → your service → Settings → Deploy Hooks
+      - name: Trigger Render deploy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.RENDER_DEPLOY_HOOK_URL != ''
+        run: curl -s -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
   client:
-    name: Client — typecheck & build
+    name: Vercel — typecheck & build
     runs-on: ubuntu-latest
     defaults:
       run:
