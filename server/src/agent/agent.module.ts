@@ -3,10 +3,27 @@ import { AgentController } from './agent.controller';
 import { AgentService } from './agent.service';
 import { AuthModule } from '../auth/auth.module';
 import { SongsModule } from '../songs/songs.module';
-
+import { ToolRegistry } from './tools/tool-registry.service';
+import { ListSongsTool } from './tools/list-songs.tool';
+import { GetSongDetailsTool } from './tools/get-song-details.tool';
+import { CreateSongTool } from './tools/create-song.tool';
+import { DeleteSongTool } from './tools/delete-song.tool';
+import { UpdateSongTool } from './tools/update-song.tool';
+import { ListDeletedSongsTool } from './tools/list-deleted-songs.tool';
+import { RestoreSongTool } from './tools/restore-song.tool';
 @Module({
   imports: [AuthModule, SongsModule],
   controllers: [AgentController],
-  providers: [AgentService],
+  providers: [
+    AgentService,
+    ToolRegistry,
+    ListSongsTool,
+    GetSongDetailsTool,
+    CreateSongTool,
+    DeleteSongTool,
+    UpdateSongTool,
+    ListDeletedSongsTool,
+    RestoreSongTool,
+  ],
 })
 export class AgentModule {}
