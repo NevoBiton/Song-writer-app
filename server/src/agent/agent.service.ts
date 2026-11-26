@@ -9,6 +9,7 @@ import { users, agentMemory } from '../db/schema';
 import { MessageDto } from './dto/agent-chat.dto';
 import { StructuredData, RunContext } from './dto/structured-data.dto';
 import { ToolRegistry } from './tools/tool-registry.service';
+import { GuardrailsService } from './guardrails.service';
 
 export interface ChatResult {
   reply: string;
@@ -23,6 +24,7 @@ export class AgentService {
     private readonly config: ConfigService,
     private readonly db: DatabaseService,
     private readonly toolRegistry: ToolRegistry,
+    private readonly guardrails: GuardrailsService,
   ) {
     this.llm = new ChatAnthropic({
       model: 'claude-haiku-4-5',
@@ -62,19 +64,22 @@ Formatting rules — follow these strictly:
 
 Language: ALWAYS respond in ${lang === 'he' ? 'Hebrew (עברית)' : 'English'}, regardless of what language the user writes in.`;
 
-    // 3. Build tools — userId and runContext captured in closures, no config passing needed
+    // 3. Extract current user message and run input guardrail before anything reaches the model
+    const input = messages[messages.length - 1]?.content ?? '';
+    this.guardrails.checkInput(input);
+
+    // 4. Build tools — userId and runContext captured in closures, no config passing needed
     const runContext: RunContext = {};
     const tools = this.toolRegistry.build(userId, runContext);
     const agent = createReactAgent({ llm: this.llm, tools });
 
-    // 4. Build message array — context management: keep last 20 messages max
+    // 5. Build message array — context management: keep last 20 messages max
     const historyMessages = messages.slice(0, -1).slice(-20);
     const chatHistory: BaseMessage[] = historyMessages.map(m =>
       m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content),
     );
-    const input = messages[messages.length - 1]?.content ?? '';
 
-    // 5. Run agent
+    // 6. Run agent
     const result = await agent.invoke(
       {
         messages: [
@@ -86,15 +91,19 @@ Language: ALWAYS respond in ${lang === 'he' ? 'Hebrew (עברית)' : 'English'}
       { recursionLimit: 25 },
     );
 
-    // 6. Extract text from last AI message (content can be string or content block array)
+    // 7. Extract text from last AI message (content can be string or content block array)
     const lastMessage = result.messages[result.messages.length - 1];
     const content = lastMessage.content;
-    const reply =
+    const rawReply =
       typeof content === 'string'
         ? content
         : Array.isArray(content)
           ? (content as Array<{ type: string; text: string }>).find(b => b.type === 'text')?.text ?? ''
           : '';
+
+    // 8. Output guardrail — sanitize before returning to client
+    const toolCallCount = result.messages.filter((m: { _getType?: () => string }) => m._getType?.() === 'tool').length;
+    const reply = this.guardrails.checkOutput(rawReply, toolCallCount);
 
     return { reply, data: runContext.structuredData };
   }

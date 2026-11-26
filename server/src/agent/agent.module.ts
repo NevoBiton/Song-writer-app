@@ -12,12 +12,14 @@ import { UpdateSongTool } from './tools/update-song.tool';
 import { ListDeletedSongsTool } from './tools/list-deleted-songs.tool';
 import { RestoreSongTool } from './tools/restore-song.tool';
 import { RememberFactTool } from './tools/remember-fact.tool';
+import { GuardrailsService } from './guardrails.service';
 
 @Module({
   imports: [AuthModule, SongsModule],
   controllers: [AgentController],
   providers: [
     AgentService,
+    GuardrailsService,
     ToolRegistry,
     ListSongsTool,
     GetSongDetailsTool,
