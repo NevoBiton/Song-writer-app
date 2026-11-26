@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { SongsService } from '../../songs/songs.service';
 import { BaseTool } from './base-tool.interface';
+import { ToolResult } from '../dto/structured-data.dto';
 
 @Injectable()
 export class ListSongsTool implements BaseTool {
@@ -17,9 +18,14 @@ export class ListSongsTool implements BaseTool {
     },
   };
 
-  async execute(_input: Record<string, unknown>, userId: string): Promise<string> {
+  async execute(_input: Record<string, unknown>, userId: string): Promise<ToolResult> {
     const songList = await this.songsService.findAll(userId);
-    if (songList.length === 0) return 'The library is empty — no songs yet.';
+
+    if (songList.length === 0) {
+      return { text: 'The library is empty — no songs yet.' };
+    }
+
+    // Plain text summary Claude reads to understand the result
     const lines = songList.map((s, i) => {
       const parts: string[] = [];
       if (s.artist) parts.push(s.artist);
@@ -28,6 +34,20 @@ export class ListSongsTool implements BaseTool {
       const meta = parts.length ? ` (${parts.join(', ')})` : '';
       return `${i + 1}. ${s.title}${meta} [id: ${s.id}]`;
     });
-    return `${songList.length} song${songList.length !== 1 ? 's' : ''} in the library:\n${lines.join('\n')}`;
+
+    return {
+      text: `${songList.length} song${songList.length !== 1 ? 's' : ''} in the library:\n${lines.join('\n')}`,
+      data: {
+        type: 'song_list',
+        total: songList.length,
+        songs: songList.map(s => ({
+          id: s.id,
+          title: s.title,
+          artist: s.artist,
+          key: s.key,
+          capo: s.capo,
+        })),
+      },
+    };
   }
 }

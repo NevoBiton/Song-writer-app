@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { SongsService } from '../../songs/songs.service';
 import { BaseTool } from './base-tool.interface';
+import { ToolResult } from '../dto/structured-data.dto';
 
 @Injectable()
 export class GetSongDetailsTool implements BaseTool {
@@ -19,7 +20,7 @@ export class GetSongDetailsTool implements BaseTool {
     },
   };
 
-  async execute(input: Record<string, unknown>, userId: string): Promise<string> {
+  async execute(input: Record<string, unknown>, userId: string): Promise<ToolResult> {
     const id = input['id'] as string;
     const song = await this.songsService.findOne(id, userId);
     const sections = Array.isArray(song.sections) ? song.sections : [];
@@ -30,6 +31,6 @@ export class GetSongDetailsTool implements BaseTool {
     lines.push(`Language: ${song.language}`);
     lines.push(`Sections: ${sections.length}`);
     lines.push(`ID: ${song.id}`);
-    return lines.join('\n');
+    return { text: lines.join('\n') };
   }
 }

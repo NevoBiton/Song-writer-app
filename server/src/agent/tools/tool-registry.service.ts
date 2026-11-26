@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { BaseTool } from './base-tool.interface';
+import { ToolResult } from '../dto/structured-data.dto';
 import { ListSongsTool } from './list-songs.tool';
 import { GetSongDetailsTool } from './get-song-details.tool';
 import { CreateSongTool } from './create-song.tool';
@@ -39,11 +40,11 @@ export class ToolRegistry {
     return Array.from(this.tools.values()).map(t => t.definition);
   }
 
-  async execute(name: string, input: Record<string, unknown>, userId: string): Promise<string> {
+  async execute(name: string, input: Record<string, unknown>, userId: string): Promise<ToolResult> {
     const tool = this.tools.get(name);
     if (!tool) {
       this.logger.warn(`Unknown tool requested: ${name}`);
-      return `Unknown tool: ${name}`;
+      return { text: `Unknown tool: ${name}` };
     }
     this.logger.debug(`Tool call: ${name} input=${JSON.stringify(input)}`);
     return tool.execute(input, userId);

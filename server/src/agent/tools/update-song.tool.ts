@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { SongsService } from '../../songs/songs.service';
 import { BaseTool } from './base-tool.interface';
+import { ToolResult } from '../dto/structured-data.dto';
 
 @Injectable()
 export class UpdateSongTool implements BaseTool {
@@ -24,7 +25,7 @@ export class UpdateSongTool implements BaseTool {
     },
   };
 
-  async execute(input: Record<string, unknown>, userId: string): Promise<string> {
+  async execute(input: Record<string, unknown>, userId: string): Promise<ToolResult> {
     const id = input['id'] as string;
     const current = await this.songsService.findOne(id, userId);
     const updated = await this.songsService.update(id, userId, {
@@ -41,6 +42,6 @@ export class UpdateSongTool implements BaseTool {
     if (input['key'] !== undefined) changes.push(`key: "${updated.key ?? 'removed'}"`);
     if (input['capo'] !== undefined) changes.push(`capo: ${updated.capo}`);
     if (input['language'] !== undefined) changes.push(`language: ${updated.language}`);
-    return `Updated "${updated.title}" — changed ${changes.join(', ')}.`;
+    return { text: `Updated "${updated.title}" — changed ${changes.join(', ')}.` };
   }
 }

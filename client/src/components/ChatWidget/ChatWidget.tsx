@@ -7,10 +7,20 @@ import { useAuth } from '@/context/AuthContext';
 import { getAvatarUrl } from '@/components/profile/ProfileModal';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { AgentSongListCard, SongItem } from './AgentSongListCard';
+
+interface SongListData {
+  type: 'song_list';
+  songs: SongItem[];
+  total: number;
+}
+
+type StructuredData = SongListData;
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  data?: StructuredData;
 }
 
 const SUGGESTED_EN = [
@@ -67,11 +77,11 @@ export function ChatWidget() {
     setInput('');
     setLoading(true);
     try {
-      const { data } = await api.post<{ reply: string }>('/agent/chat', {
+      const { data } = await api.post<{ reply: string; data?: StructuredData }>('/agent/chat', {
         messages: updatedMessages,
         lang: uiLang,
       });
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply, data: data.data }]);
     } catch {
       toast.error(t.agentError);
     } finally {
@@ -149,12 +159,19 @@ export function ChatWidget() {
                       </div>
                   }
                 </div>
-                <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap ${
-                  msg.role === 'user'
-                    ? 'bg-amber-400 text-gray-900 rounded-tr-sm'
-                    : 'bg-muted text-foreground rounded-tl-sm'
-                }`}>
-                  {msg.content}
+                <div className="flex flex-col gap-1.5 max-w-[80%]">
+                  {msg.content && (
+                    <div className={`rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap ${
+                      msg.role === 'user'
+                        ? 'bg-amber-400 text-gray-900 rounded-tr-sm'
+                        : 'bg-muted text-foreground rounded-tl-sm'
+                    }`}>
+                      {msg.content}
+                    </div>
+                  )}
+                  {msg.data?.type === 'song_list' && (
+                    <AgentSongListCard songs={msg.data.songs} total={msg.data.total} />
+                  )}
                 </div>
               </div>
             ))}

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { SongsService } from '../../songs/songs.service';
 import { BaseTool } from './base-tool.interface';
+import { ToolResult } from '../dto/structured-data.dto';
 
 @Injectable()
 export class RestoreSongTool implements BaseTool {
@@ -19,9 +20,9 @@ export class RestoreSongTool implements BaseTool {
     },
   };
 
-  async execute(input: Record<string, unknown>, userId: string): Promise<string> {
+  async execute(input: Record<string, unknown>, userId: string): Promise<ToolResult> {
     const id = input['id'] as string;
     const song = await this.songsService.restore(id, userId);
-    return `Restored "${song.title}" back to the library.`;
+    return { text: `Restored "${song.title}" back to the library.` };
   }
 }
