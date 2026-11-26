@@ -1,28 +1,24 @@
 import { Injectable } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
 import { SongsService } from '../../songs/songs.service';
-import { BaseTool } from './base-tool.interface';
-import { ToolResult } from '../dto/structured-data.dto';
 
 @Injectable()
-export class DeleteSongTool implements BaseTool {
+export class DeleteSongTool {
   constructor(private readonly songsService: SongsService) {}
 
-  definition: Anthropic.Tool = {
-    name: 'delete_song',
-    description: 'Move a song to the trash (soft delete). The user can restore it within 30 days.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        id: { type: 'string', description: 'The song ID to delete' },
+  build(userId: string): DynamicStructuredTool {
+    const songsService = this.songsService;
+    return new DynamicStructuredTool({
+      name: 'delete_song',
+      description: 'Move a song to the trash (soft delete). The user can restore it within 30 days.',
+      schema: z.object({
+        id: z.string().describe('The song ID to delete'),
+      }),
+      func: async ({ id }) => {
+        await songsService.softDelete(id, userId);
+        return 'Song moved to trash. The user can restore it within 30 days.';
       },
-      required: ['id'],
-    },
-  };
-
-  async execute(input: Record<string, unknown>, userId: string): Promise<ToolResult> {
-    const id = input['id'] as string;
-    await this.songsService.softDelete(id, userId);
-    return { text: 'Song moved to trash. The user can restore it within 30 days.' };
+    });
   }
 }

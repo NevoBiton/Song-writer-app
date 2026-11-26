@@ -15,7 +15,7 @@ export interface SongListData {
 // Union type — extend here when new structured responses are added
 export type StructuredData = SongListData;
 
-export interface ToolResult {
-  text: string;
-  data?: StructuredData;
+// Side-channel context passed to every tool via config.configurable
+export interface RunContext {
+  structuredData?: StructuredData;
 }

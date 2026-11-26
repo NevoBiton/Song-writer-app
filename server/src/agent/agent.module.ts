@@ -11,6 +11,8 @@ import { DeleteSongTool } from './tools/delete-song.tool';
 import { UpdateSongTool } from './tools/update-song.tool';
 import { ListDeletedSongsTool } from './tools/list-deleted-songs.tool';
 import { RestoreSongTool } from './tools/restore-song.tool';
+import { RememberFactTool } from './tools/remember-fact.tool';
+
 @Module({
   imports: [AuthModule, SongsModule],
   controllers: [AgentController],
@@ -24,6 +26,7 @@ import { RestoreSongTool } from './tools/restore-song.tool';
     UpdateSongTool,
     ListDeletedSongsTool,
     RestoreSongTool,
+    RememberFactTool,
   ],
 })
 export class AgentModule {}

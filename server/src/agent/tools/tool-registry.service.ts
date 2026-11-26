@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
-import { BaseTool } from './base-tool.interface';
-import { ToolResult } from '../dto/structured-data.dto';
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { RunContext } from '../dto/structured-data.dto';
 import { ListSongsTool } from './list-songs.tool';
 import { GetSongDetailsTool } from './get-song-details.tool';
 import { CreateSongTool } from './create-song.tool';
@@ -9,44 +8,35 @@ import { DeleteSongTool } from './delete-song.tool';
 import { UpdateSongTool } from './update-song.tool';
 import { ListDeletedSongsTool } from './list-deleted-songs.tool';
 import { RestoreSongTool } from './restore-song.tool';
+import { RememberFactTool } from './remember-fact.tool';
+
 @Injectable()
 export class ToolRegistry {
   private readonly logger = new Logger(ToolRegistry.name);
-  private readonly tools: Map<string, BaseTool>;
 
   constructor(
-    listSongsTool: ListSongsTool,
-    getSongDetailsTool: GetSongDetailsTool,
-    createSongTool: CreateSongTool,
-    deleteSongTool: DeleteSongTool,
-    updateSongTool: UpdateSongTool,
-    listDeletedSongsTool: ListDeletedSongsTool,
-    restoreSongTool: RestoreSongTool,
-  ) {
-    this.tools = new Map<string, BaseTool>([
-      ['list_songs', listSongsTool],
-      ['get_song_details', getSongDetailsTool],
-      ['create_song', createSongTool],
-      ['delete_song', deleteSongTool],
-      ['update_song', updateSongTool],
-      ['list_deleted_songs', listDeletedSongsTool],
-      ['restore_song', restoreSongTool],
-    ]);
+    private readonly listSongsTool: ListSongsTool,
+    private readonly getSongDetailsTool: GetSongDetailsTool,
+    private readonly createSongTool: CreateSongTool,
+    private readonly deleteSongTool: DeleteSongTool,
+    private readonly updateSongTool: UpdateSongTool,
+    private readonly listDeletedSongsTool: ListDeletedSongsTool,
+    private readonly restoreSongTool: RestoreSongTool,
+    private readonly rememberFactTool: RememberFactTool,
+  ) {}
 
-    this.logger.log(`ToolRegistry initialised with ${this.tools.size} tools: ${[...this.tools.keys()].join(', ')}`);
-  }
-
-  getDefinitions(): Anthropic.Tool[] {
-    return Array.from(this.tools.values()).map(t => t.definition);
-  }
-
-  async execute(name: string, input: Record<string, unknown>, userId: string): Promise<ToolResult> {
-    const tool = this.tools.get(name);
-    if (!tool) {
-      this.logger.warn(`Unknown tool requested: ${name}`);
-      return { text: `Unknown tool: ${name}` };
-    }
-    this.logger.debug(`Tool call: ${name} input=${JSON.stringify(input)}`);
-    return tool.execute(input, userId);
+  build(userId: string, runContext: RunContext): DynamicStructuredTool[] {
+    const tools = [
+      this.listSongsTool.build(userId, runContext),
+      this.getSongDetailsTool.build(userId),
+      this.createSongTool.build(userId),
+      this.deleteSongTool.build(userId),
+      this.updateSongTool.build(userId),
+      this.listDeletedSongsTool.build(userId),
+      this.restoreSongTool.build(userId),
+      this.rememberFactTool.build(userId),
+    ];
+    this.logger.log(`Built ${tools.length} LangChain tools: ${tools.map(t => t.name).join(', ')}`);
+    return tools;
   }
 }
