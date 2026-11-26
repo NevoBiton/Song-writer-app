@@ -1,10 +1,11 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { songs, deletedSongs, songCollaborators, songVersions, songDrafts } from '../db/schema';
 import { eq, and, gte, inArray } from 'drizzle-orm';
 import { CreateSongDto } from './dto/create-song.dto';
 import { UpdateSongDto } from './dto/update-song.dto';
 import { AppGateway } from '../gateway/app.gateway';
+import { EmbeddingService } from '../agent/embedding.service';
 
 @Injectable()
 export class SongsService {
@@ -13,6 +14,7 @@ export class SongsService {
   constructor(
     private readonly db: DatabaseService,
     private readonly gateway: AppGateway,
+    @Optional() private readonly embeddingService?: EmbeddingService,
   ) {}
 
   async findAll(userId: string) {
@@ -80,6 +82,8 @@ export class SongsService {
       })
       .returning();
     this.logger.log(`Song created: "${song.title}" (id=${song.id}) by user=${userId}`);
+    // Fire-and-forget: generate embedding asynchronously, don't block the response
+    void this.embeddingService?.embedSong(song.id, userId, song.title, song.artist, song.key);
     return song;
   }
 
@@ -166,6 +170,8 @@ export class SongsService {
     }
 
     this.logger.log(`Song updated: "${song.title}" (id=${id}) by user=${userId}`);
+    // Fire-and-forget: regenerate embedding after metadata changes
+    void this.embeddingService?.embedSong(song.id, userId, song.title, song.artist, song.key);
     return song;
   }
 

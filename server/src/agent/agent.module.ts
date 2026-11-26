@@ -13,6 +13,8 @@ import { ListDeletedSongsTool } from './tools/list-deleted-songs.tool';
 import { RestoreSongTool } from './tools/restore-song.tool';
 import { RememberFactTool } from './tools/remember-fact.tool';
 import { GuardrailsService } from './guardrails.service';
+import { EmbeddingService } from './embedding.service';
+import { SearchSongsSemanticTool } from './tools/search-songs-semantic.tool';
 
 @Module({
   imports: [AuthModule, SongsModule],
@@ -20,6 +22,8 @@ import { GuardrailsService } from './guardrails.service';
   providers: [
     AgentService,
     GuardrailsService,
+    EmbeddingService,
+    SearchSongsSemanticTool,
     ToolRegistry,
     ListSongsTool,
     GetSongDetailsTool,

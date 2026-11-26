@@ -7,7 +7,7 @@ import * as schema from '../db/schema';
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   public readonly db: NodePgDatabase<typeof schema>;
-  private readonly pool: Pool;
+  public readonly pool: Pool;
 
   constructor(private readonly config: ConfigService) {
     this.pool = new Pool({ connectionString: this.config.get<string>('DATABASE_URL') });

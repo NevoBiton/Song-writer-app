@@ -33,6 +33,7 @@ import { NotificationsModule } from './notifications/notifications.module';
         LANGCHAIN_TRACING_V2: Joi.string().optional(),
         LANGCHAIN_API_KEY: Joi.string().optional(),
         LANGCHAIN_PROJECT: Joi.string().optional(),
+        VOYAGE_API_KEY: Joi.string().optional(),
       }),
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
