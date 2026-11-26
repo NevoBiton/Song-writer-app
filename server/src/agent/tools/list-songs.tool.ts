@@ -3,13 +3,18 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { SongsService } from '../../songs/songs.service';
 import { RunContext } from '../dto/structured-data.dto';
+import { GuardrailsService } from '../guardrails.service';
 
 @Injectable()
 export class ListSongsTool {
-  constructor(private readonly songsService: SongsService) {}
+  constructor(
+    private readonly songsService: SongsService,
+    private readonly guardrails: GuardrailsService,
+  ) {}
 
   build(userId: string, runContext: RunContext): DynamicStructuredTool {
     const songsService = this.songsService;
+    const guardrails = this.guardrails;
     return new DynamicStructuredTool({
       name: 'list_songs',
       description: "List all songs in the user's library. Returns title, artist, key, capo, and id for each song.",
@@ -20,11 +25,12 @@ export class ListSongsTool {
         if (songs.length === 0) return 'The library is empty — no songs yet.';
 
         const lines = songs.map((s, i) => {
+          const title = guardrails.sanitizeUserContent(s.title);
           const parts: string[] = [];
-          if (s.artist) parts.push(s.artist);
+          if (s.artist) parts.push(guardrails.sanitizeUserContent(s.artist));
           if (s.key) parts.push(`Key: ${s.key}`);
           if (s.capo) parts.push(`Capo: ${s.capo}`);
-          return `${i + 1}. ${s.title}${parts.length ? ` (${parts.join(', ')})` : ''} [id: ${s.id}]`;
+          return `${i + 1}. ${title}${parts.length ? ` (${parts.join(', ')})` : ''} [id: ${s.id}]`;
         });
 
         runContext.structuredData = {

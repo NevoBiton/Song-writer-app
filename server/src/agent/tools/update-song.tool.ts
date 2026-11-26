@@ -2,13 +2,18 @@ import { Injectable } from '@nestjs/common';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { SongsService } from '../../songs/songs.service';
+import { GuardrailsService } from '../guardrails.service';
 
 @Injectable()
 export class UpdateSongTool {
-  constructor(private readonly songsService: SongsService) {}
+  constructor(
+    private readonly songsService: SongsService,
+    private readonly guardrails: GuardrailsService,
+  ) {}
 
   build(userId: string): DynamicStructuredTool {
     const songsService = this.songsService;
+    const guardrails = this.guardrails;
     return new DynamicStructuredTool({
       name: 'update_song',
       description: "Update a song's metadata — title, artist, key, capo, or language. Only the fields you provide are changed.",
@@ -36,7 +41,7 @@ export class UpdateSongTool {
         if (key !== undefined) changes.push(`key: "${updated.key ?? 'removed'}"`);
         if (capo !== undefined) changes.push(`capo: ${updated.capo}`);
         if (language !== undefined) changes.push(`language: ${updated.language}`);
-        return `Updated "${updated.title}" — changed ${changes.join(', ')}.`;
+        return `Updated "${guardrails.sanitizeUserContent(updated.title)}" — changed ${changes.join(', ')}.`;
       },
     });
   }

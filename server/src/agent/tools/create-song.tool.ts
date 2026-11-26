@@ -2,13 +2,18 @@ import { Injectable } from '@nestjs/common';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { SongsService } from '../../songs/songs.service';
+import { GuardrailsService } from '../guardrails.service';
 
 @Injectable()
 export class CreateSongTool {
-  constructor(private readonly songsService: SongsService) {}
+  constructor(
+    private readonly songsService: SongsService,
+    private readonly guardrails: GuardrailsService,
+  ) {}
 
   build(userId: string): DynamicStructuredTool {
     const songsService = this.songsService;
+    const guardrails = this.guardrails;
     return new DynamicStructuredTool({
       name: 'create_song',
       description: "Create a new song in the user's library.",
@@ -28,7 +33,7 @@ export class CreateSongTool {
           language: language ?? 'en',
           sections: [],
         });
-        return `Created "${song.title}" (id: ${song.id})`;
+        return `Created "${guardrails.sanitizeUserContent(song.title)}" (id: ${song.id})`;
       },
     });
   }

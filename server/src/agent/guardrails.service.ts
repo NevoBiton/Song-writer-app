@@ -1,3 +1,22 @@
+/**
+ * TENANT ISOLATION AUDIT — Task 06
+ *
+ * Every agent tool receives userId exclusively from the validated JWT
+ * via the build(userId) closure in ToolRegistry. The userId is extracted
+ * from req.user.id by JwtAuthGuard in AgentController and passed into
+ * AgentService.chat(). It is never read from the message body or any
+ * user-supplied input. Verified tools:
+ *
+ *   ✓ list-songs.tool.ts        — songsService.findAll(userId)
+ *   ✓ get-song-details.tool.ts  — songsService.findOne(id, userId)
+ *   ✓ create-song.tool.ts       — songsService.create(userId, ...)
+ *   ✓ update-song.tool.ts       — songsService.update(id, userId, ...)
+ *   ✓ delete-song.tool.ts       — songsService.softDelete(id, userId)
+ *   ✓ list-deleted-songs.tool.ts— songsService.listDeleted(userId)
+ *   ✓ restore-song.tool.ts      — songsService.restore(id, userId)
+ *   ✓ remember-fact.tool.ts     — agentMemory filtered by userId
+ */
+
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 
 const MAX_INPUT_LENGTH = 2000;
@@ -50,6 +69,18 @@ export class GuardrailsService {
         );
       }
     }
+  }
+
+  /**
+   * Sanitize user-generated content before it is embedded in a tool result
+   * string that goes back into the agent loop. Prevents indirect prompt
+   * injection via song titles, artist names, or any other DB-sourced text.
+   */
+  sanitizeUserContent(text: string): string {
+    return INJECTION_PATTERNS.reduce(
+      (sanitized, pattern) => sanitized.replace(pattern, '[removed]'),
+      text,
+    );
   }
 
   checkOutput(reply: string, toolCallCount: number = 0): string {
