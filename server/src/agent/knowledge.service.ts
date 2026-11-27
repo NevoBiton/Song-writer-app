@@ -34,6 +34,7 @@ export class KnowledgeService implements OnModuleInit {
         metadataColumnName: 'metadata',
       },
     });
+    await this.db.ensureHnswIndex('knowledge_embeddings', 'idx_knowledge_embeddings_hnsw');
     this.logger.log('KnowledgeService: PGVectorStore initialized');
     await this.ingestIfEmpty();
   }

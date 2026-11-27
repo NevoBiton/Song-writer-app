@@ -32,13 +32,10 @@ export class EmbeddingService implements OnModuleInit {
         metadataColumnName: 'metadata',
       },
     });
+    await this.db.ensureHnswIndex('song_embeddings', 'idx_song_embeddings_hnsw');
     this.logger.log('PGVectorStore initialized');
   }
 
-  /**
-   * Generate and store an embedding for a song.
-   * Delete any existing row first so addDocuments() doesn't hit a duplicate key.
-   */
   async embedSong(
     songId: string,
     userId: string,
