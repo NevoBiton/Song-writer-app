@@ -10,6 +10,7 @@ import { MessageDto, SupportedModel } from './dto/agent-chat.dto';
 import { StructuredData, RunContext } from './dto/structured-data.dto';
 import { ToolRegistry } from './tools/tool-registry.service';
 import { GuardrailsService } from './guardrails.service';
+import { SkillsService } from './skills.service';
 
 export interface ChatResult {
   reply: string;
@@ -26,6 +27,7 @@ export class AgentService {
     private readonly db: DatabaseService,
     private readonly toolRegistry: ToolRegistry,
     private readonly guardrails: GuardrailsService,
+    private readonly skills: SkillsService,
   ) {
     this.proxyUrl = this.config.get<string>('LITELLM_PROXY_URL') ?? 'http://localhost:4000';
     this.masterKey = this.config.get<string>('LITELLM_MASTER_KEY') ?? 'sk-wordchord-local';
@@ -55,7 +57,15 @@ export class AgentService {
         ? `\nWhat you remember about ${username} from previous conversations:\n${memories.map(m => `- ${m.key}: ${m.value}`).join('\n')}\n`
         : '';
 
-    // 2. System prompt
+    // 2. Extract current user message and run input guardrail before anything reaches the model
+    const input = messages[messages.length - 1]?.content ?? '';
+    this.guardrails.checkInput(input);
+
+    // 3. Detect skill and build injection block
+    const skillInjection = this.skills.detect(input);
+    const skillBlock = skillInjection ? `\nFocused guidance for this request:\n${skillInjection}\n` : '';
+
+    // 4. System prompt
     const systemPrompt = `You are a friendly music assistant for WordChord, a chord notebook app. The user's name is ${username}.
 ${memoriesBlock}
 You help manage their song library (list, view, create, update, delete, restore songs) and answer music questions about chords, keys, progressions, and theory from your own knowledge.
@@ -69,24 +79,20 @@ Formatting rules — follow these strictly:
 - When creating a song, proceed if you have a title. Only ask for more details if the user seems to want them.
 - Any time the user reveals something personal about themselves, call remember_fact — once per distinct fact. Use your judgment: if knowing this in a future conversation would make you more helpful or personal, save it. Never say "I noted" or announce it. Always store the value in English.
 
-Language: ALWAYS respond in ${lang === 'he' ? 'Hebrew (עברית)' : 'English'}, regardless of what language the user writes in.`;
+Language: ALWAYS respond in ${lang === 'he' ? 'Hebrew (עברית)' : 'English'}, regardless of what language the user writes in.${skillBlock}`;
 
-    // 3. Extract current user message and run input guardrail before anything reaches the model
-    const input = messages[messages.length - 1]?.content ?? '';
-    this.guardrails.checkInput(input);
-
-    // 4. Build tools — userId and runContext captured in closures, no config passing needed
+    // 5. Build tools — userId and runContext captured in closures, no config passing needed
     const runContext: RunContext = {};
     const tools = this.toolRegistry.build(userId, runContext);
     const agent = createReactAgent({ llm: this.buildLlm(model), tools });
 
-    // 5. Build message array — context management: keep last 20 messages max
+    // 6. Build message array — context management: keep last 20 messages max
     const historyMessages = messages.slice(0, -1).slice(-20);
     const chatHistory: BaseMessage[] = historyMessages.map(m =>
       m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content),
     );
 
-    // 6. Run agent
+    // 7. Run agent
     const result = await agent.invoke(
       {
         messages: [
@@ -98,7 +104,7 @@ Language: ALWAYS respond in ${lang === 'he' ? 'Hebrew (עברית)' : 'English'}
       { recursionLimit: 25 },
     );
 
-    // 7. Extract text from last AI message (content can be string or content block array)
+    // 8. Extract text from last AI message (content can be string or content block array)
     const lastMessage = result.messages[result.messages.length - 1];
     const content = lastMessage.content;
     const rawReply =
@@ -108,7 +114,7 @@ Language: ALWAYS respond in ${lang === 'he' ? 'Hebrew (עברית)' : 'English'}
           ? (content as Array<{ type: string; text: string }>).find(b => b.type === 'text')?.text ?? ''
           : '';
 
-    // 8. Output guardrail — sanitize before returning to client
+    // 9. Output guardrail — sanitize before returning to client
     const toolCallCount = result.messages.filter((m: { _getType?: () => string }) => m._getType?.() === 'tool').length;
     const reply = this.guardrails.checkOutput(rawReply, toolCallCount);
 
