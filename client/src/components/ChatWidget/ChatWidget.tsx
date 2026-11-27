@@ -23,6 +23,13 @@ interface Message {
   data?: StructuredData;
 }
 
+const MODELS = [
+  { id: 'claude-haiku-4-5', label: 'Claude' },
+  { id: 'gpt-4o-mini',      label: 'GPT-4o' },
+] as const;
+
+type ModelId = typeof MODELS[number]['id'];
+
 const SUGGESTED_EN = [
   'Show my songs',
   'Create a song in G major',
@@ -45,6 +52,7 @@ export function ChatWidget() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [model, setModel] = useState<ModelId>('claude-haiku-4-5');
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -80,6 +88,7 @@ export function ChatWidget() {
       const { data } = await api.post<{ reply: string; data?: StructuredData }>('/agent/chat', {
         messages: updatedMessages,
         lang: uiLang,
+        model,
       });
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply, data: data.data }]);
     } catch {
@@ -110,7 +119,23 @@ export function ChatWidget() {
               </div>
               <p className="text-sm font-semibold text-foreground">{t.agentTitle}</p>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              {/* Model selector */}
+              <div className="flex items-center bg-muted rounded-full p-0.5 gap-0.5">
+                {MODELS.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => setModel(m.id)}
+                    className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors ${
+                      model === m.id
+                        ? 'bg-amber-400 text-gray-900'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
               {messages.length > 0 && (
                 <button
                   onClick={() => setMessages([])}

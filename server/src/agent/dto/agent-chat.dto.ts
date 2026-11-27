@@ -9,6 +9,9 @@ export class MessageDto {
   content: string;
 }
 
+export const SUPPORTED_MODELS = ['claude-haiku-4-5', 'gpt-4o-mini'] as const;
+export type SupportedModel = typeof SUPPORTED_MODELS[number];
+
 export class AgentChatDto {
   @IsArray()
   @ValidateNested({ each: true })
@@ -18,4 +21,8 @@ export class AgentChatDto {
   @IsOptional()
   @IsIn(['en', 'he'])
   lang?: 'en' | 'he';
+
+  @IsOptional()
+  @IsIn(SUPPORTED_MODELS)
+  model?: SupportedModel;
 }

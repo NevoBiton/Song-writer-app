@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ChatAnthropic } from '@langchain/anthropic';
+import { ChatOpenAI } from '@langchain/openai';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { SystemMessage, HumanMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
 import { eq, desc } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import { users, agentMemory } from '../db/schema';
-import { MessageDto } from './dto/agent-chat.dto';
+import { MessageDto, SupportedModel } from './dto/agent-chat.dto';
 import { StructuredData, RunContext } from './dto/structured-data.dto';
 import { ToolRegistry } from './tools/tool-registry.service';
 import { GuardrailsService } from './guardrails.service';
@@ -18,7 +18,8 @@ export interface ChatResult {
 
 @Injectable()
 export class AgentService {
-  private readonly llm: ChatAnthropic;
+  private readonly proxyUrl: string;
+  private readonly masterKey: string;
 
   constructor(
     private readonly config: ConfigService,
@@ -26,13 +27,19 @@ export class AgentService {
     private readonly toolRegistry: ToolRegistry,
     private readonly guardrails: GuardrailsService,
   ) {
-    this.llm = new ChatAnthropic({
-      model: 'claude-haiku-4-5',
-      anthropicApiKey: this.config.get<string>('ANTHROPIC_API_KEY'),
+    this.proxyUrl = this.config.get<string>('LITELLM_PROXY_URL') ?? 'http://localhost:4000';
+    this.masterKey = this.config.get<string>('LITELLM_MASTER_KEY') ?? 'sk-wordchord-local';
+  }
+
+  private buildLlm(model: SupportedModel): ChatOpenAI {
+    return new ChatOpenAI({
+      modelName: model,
+      apiKey: this.masterKey,
+      configuration: { baseURL: this.proxyUrl },
     });
   }
 
-  async chat(userId: string, messages: MessageDto[], lang: 'en' | 'he' = 'en'): Promise<ChatResult> {
+  async chat(userId: string, messages: MessageDto[], lang: 'en' | 'he' = 'en', model: SupportedModel = 'claude-haiku-4-5'): Promise<ChatResult> {
     // 1. Load user info and persistent memories
     const [user] = await this.db.db.select({ username: users.username }).from(users).where(eq(users.id, userId));
     const username = user?.username ?? 'there';
@@ -71,7 +78,7 @@ Language: ALWAYS respond in ${lang === 'he' ? 'Hebrew (עברית)' : 'English'}
     // 4. Build tools — userId and runContext captured in closures, no config passing needed
     const runContext: RunContext = {};
     const tools = this.toolRegistry.build(userId, runContext);
-    const agent = createReactAgent({ llm: this.llm, tools });
+    const agent = createReactAgent({ llm: this.buildLlm(model), tools });
 
     // 5. Build message array — context management: keep last 20 messages max
     const historyMessages = messages.slice(0, -1).slice(-20);
