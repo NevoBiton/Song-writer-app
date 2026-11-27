@@ -10,6 +10,7 @@ import { ListDeletedSongsTool } from './list-deleted-songs.tool';
 import { RestoreSongTool } from './restore-song.tool';
 import { RememberFactTool } from './remember-fact.tool';
 import { SearchSongsSemanticTool } from './search-songs-semantic.tool';
+import { SearchKnowledgeTool } from './search-knowledge.tool';
 
 @Injectable()
 export class ToolRegistry {
@@ -25,6 +26,7 @@ export class ToolRegistry {
     private readonly restoreSongTool: RestoreSongTool,
     private readonly rememberFactTool: RememberFactTool,
     private readonly searchSongsSemanticTool: SearchSongsSemanticTool,
+    private readonly searchKnowledgeTool: SearchKnowledgeTool,
   ) {}
 
   build(userId: string, runContext: RunContext): DynamicStructuredTool[] {
@@ -38,6 +40,7 @@ export class ToolRegistry {
       this.restoreSongTool.build(userId),
       this.rememberFactTool.build(userId),
       this.searchSongsSemanticTool.build(userId),
+      this.searchKnowledgeTool.build(),
     ];
     this.logger.log(`Built ${tools.length} LangChain tools: ${tools.map(t => t.name).join(', ')}`);
     return tools;
