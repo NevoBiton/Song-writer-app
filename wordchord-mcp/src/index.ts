@@ -1,149 +1,187 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod';
+import { apiCall, Song } from './api.js';
 
-const API_URL = process.env.WORDCHORD_API_URL ?? 'http://localhost:3001/api';
-const JWT_TOKEN = process.env.WORDCHORD_JWT_TOKEN ?? '';
+// ─── Startup validation ───────────────────────────────────────────────────────
 
-// ─── HTTP helper ────────────────────────────────────────────────────────────
-
-async function apiCall(method: string, path: string, body?: unknown) {
-  const res = await fetch(`${API_URL}${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${JWT_TOKEN}`,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
-  return res.json() as Promise<unknown>;
+if (!process.env.WORDCHORD_JWT_TOKEN) {
+  console.error('[wordchord-mcp] WORDCHORD_JWT_TOKEN is not set — exiting.');
+  process.exit(1);
 }
 
-// ─── MCP Server ─────────────────────────────────────────────────────────────
+// ─── Server ───────────────────────────────────────────────────────────────────
 
-const server = new Server(
-  { name: 'wordchord', version: '1.0.0' },
-  { capabilities: { tools: {} } },
-);
-
-// ─── Tool definitions ────────────────────────────────────────────────────────
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    {
-      name: 'list_songs',
-      description: "List all songs in the user's WordChord library",
-      inputSchema: { type: 'object', properties: {}, required: [] },
-    },
-    {
-      name: 'get_song',
-      description: 'Get the full details of a specific song by its ID',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', description: 'The song ID' },
-        },
-        required: ['id'],
-      },
-    },
-    {
-      name: 'create_song',
-      description: 'Create a new song in the WordChord library',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          title:  { type: 'string', description: 'Song title' },
-          artist: { type: 'string', description: 'Artist name (optional)' },
-          key:    { type: 'string', description: 'Musical key e.g. "C", "Am" (optional)' },
-          capo:   { type: 'number', description: 'Capo fret number (optional)' },
-        },
-        required: ['title'],
-      },
-    },
-    {
-      name: 'delete_song',
-      description: 'Delete a song from the WordChord library by its ID',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', description: 'The song ID to delete' },
-        },
-        required: ['id'],
-      },
-    },
-    {
-      name: 'search_songs',
-      description: 'Search songs by title or artist using text matching',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'Search query' },
-        },
-        required: ['query'],
-      },
-    },
-  ],
-}));
-
-// ─── Tool implementations ────────────────────────────────────────────────────
-
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-  const a = (args ?? {}) as Record<string, unknown>;
-
-  try {
-    switch (name) {
-      case 'list_songs': {
-        const songs = await apiCall('GET', '/songs');
-        return { content: [{ type: 'text', text: JSON.stringify(songs, null, 2) }] };
-      }
-
-      case 'get_song': {
-        const song = await apiCall('GET', `/songs/${a.id}`);
-        return { content: [{ type: 'text', text: JSON.stringify(song, null, 2) }] };
-      }
-
-      case 'create_song': {
-        const song = await apiCall('POST', '/songs', a);
-        return { content: [{ type: 'text', text: JSON.stringify(song, null, 2) }] };
-      }
-
-      case 'delete_song': {
-        await apiCall('DELETE', `/songs/${a.id}`);
-        return { content: [{ type: 'text', text: `Song ${a.id} deleted successfully.` }] };
-      }
-
-      case 'search_songs': {
-        const songs = await apiCall('GET', '/songs') as Array<Record<string, unknown>>;
-        const query = String(a.query).toLowerCase();
-        const matches = songs.filter(s =>
-          String(s.title ?? '').toLowerCase().includes(query) ||
-          String(s.artist ?? '').toLowerCase().includes(query),
-        );
-        return { content: [{ type: 'text', text: JSON.stringify(matches, null, 2) }] };
-      }
-
-      default:
-        throw new Error(`Unknown tool: ${name}`);
-    }
-  } catch (err) {
-    return {
-      content: [{ type: 'text', text: `Error: ${(err as Error).message}` }],
-      isError: true,
-    };
-  }
+const server = new McpServer({
+  name: 'wordchord',
+  version: '1.0.0',
 });
 
-// ─── Start ───────────────────────────────────────────────────────────────────
+// ─── Resources ───────────────────────────────────────────────────────────────
+// Resources expose read-only data that clients can subscribe to or browse.
 
-async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error('WordChord MCP server running on stdio');
-}
+server.registerResource(
+  'song-library',
+  'wordchord://songs',
+  {
+    title: 'Song Library',
+    description: "Read-only snapshot of all songs in the user's WordChord library.",
+    mimeType: 'application/json',
+  },
+  async () => {
+    const songs = await apiCall<Song[]>('GET', '/songs');
+    return {
+      contents: [
+        {
+          uri: 'wordchord://songs',
+          mimeType: 'application/json',
+          text: JSON.stringify(songs, null, 2),
+        },
+      ],
+    };
+  },
+);
 
-main().catch(console.error);
+// ─── Tools ───────────────────────────────────────────────────────────────────
+
+server.registerTool(
+  'list_songs',
+  {
+    title: 'List Songs',
+    description: "Return all songs in the user's WordChord library.",
+    annotations: { readOnlyHint: true },
+  },
+  async () => {
+    const songs = await apiCall<Song[]>('GET', '/songs');
+    return { content: [{ type: 'text' as const, text: JSON.stringify(songs, null, 2) }] };
+  },
+);
+
+server.registerTool(
+  'get_song',
+  {
+    title: 'Get Song',
+    description: 'Return full details of a single song by ID.',
+    inputSchema: {
+      id: z.string().describe('Song ID'),
+    },
+    annotations: { readOnlyHint: true, idempotentHint: true },
+  },
+  async ({ id }) => {
+    const song = await apiCall<Song>('GET', `/songs/${id}`);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(song, null, 2) }] };
+  },
+);
+
+server.registerTool(
+  'search_songs',
+  {
+    title: 'Search Songs',
+    description: 'Search the song library by title or artist name. Returns all matching songs.',
+    inputSchema: {
+      query: z.string().min(1).describe('Search query (matches title or artist)'),
+    },
+    annotations: { readOnlyHint: true },
+  },
+  async ({ query }) => {
+    const songs = await apiCall<Song[]>('GET', '/songs');
+    const q = query.toLowerCase();
+    const matches = songs.filter(
+      s =>
+        (s.title ?? '').toLowerCase().includes(q) ||
+        (s.artist ?? '').toLowerCase().includes(q),
+    );
+    return { content: [{ type: 'text' as const, text: JSON.stringify(matches, null, 2) }] };
+  },
+);
+
+server.registerTool(
+  'create_song',
+  {
+    title: 'Create Song',
+    description: 'Create a new song in the WordChord library.',
+    inputSchema: {
+      title:  z.string().min(1).describe('Song title'),
+      artist: z.string().optional().describe('Artist name'),
+      key:    z.string().optional().describe('Musical key (e.g. "C", "Am", "F#")'),
+      capo:   z.number().int().min(0).max(12).optional().describe('Capo fret number (0–12)'),
+    },
+    annotations: { destructiveHint: false, idempotentHint: false },
+  },
+  async (args) => {
+    const song = await apiCall<Song>('POST', '/songs', args);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(song, null, 2) }] };
+  },
+);
+
+server.registerTool(
+  'update_song',
+  {
+    title: 'Update Song',
+    description: "Update a song's metadata. Only the fields you provide will change.",
+    inputSchema: {
+      id:     z.string().describe('Song ID to update'),
+      title:  z.string().min(1).optional().describe('New title'),
+      artist: z.string().optional().describe('New artist name'),
+      key:    z.string().optional().describe('New musical key (e.g. "G", "Em")'),
+      capo:   z.number().int().min(0).max(12).optional().describe('New capo fret (0–12)'),
+    },
+    annotations: { destructiveHint: false, idempotentHint: true },
+  },
+  async ({ id, ...updates }) => {
+    const song = await apiCall<Song>('PUT', `/songs/${id}`, updates);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(song, null, 2) }] };
+  },
+);
+
+server.registerTool(
+  'delete_song',
+  {
+    title: 'Delete Song',
+    description:
+      'Soft-delete a song (moves it to trash). It can be restored within 30 days via restore_song.',
+    inputSchema: {
+      id: z.string().describe('Song ID to delete'),
+    },
+    annotations: { destructiveHint: true, idempotentHint: false },
+  },
+  async ({ id }) => {
+    await apiCall<void>('DELETE', `/songs/${id}`);
+    return { content: [{ type: 'text' as const, text: `Song ${id} moved to trash.` }] };
+  },
+);
+
+server.registerTool(
+  'list_deleted_songs',
+  {
+    title: 'List Deleted Songs',
+    description: 'List songs currently in the trash (deleted within the last 30 days).',
+    annotations: { readOnlyHint: true },
+  },
+  async () => {
+    const songs = await apiCall<Song[]>('GET', '/songs/deleted');
+    return { content: [{ type: 'text' as const, text: JSON.stringify(songs, null, 2) }] };
+  },
+);
+
+server.registerTool(
+  'restore_song',
+  {
+    title: 'Restore Song',
+    description: 'Restore a soft-deleted song from the trash back to the library.',
+    inputSchema: {
+      id: z.string().describe('Deleted song ID to restore'),
+    },
+    annotations: { destructiveHint: false, idempotentHint: true },
+  },
+  async ({ id }) => {
+    const song = await apiCall<Song>('POST', `/songs/deleted/${id}/restore`);
+    return { content: [{ type: 'text' as const, text: JSON.stringify(song, null, 2) }] };
+  },
+);
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+
+const transport = new StdioServerTransport();
+await server.connect(transport);
+console.error('[wordchord-mcp] running on stdio');
