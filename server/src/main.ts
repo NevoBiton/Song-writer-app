@@ -1,4 +1,12 @@
 import 'reflect-metadata';
+// LangChain's UUID library accesses bare `crypto` which may not resolve as a
+// global in some Node.js 18 CJS environments. Ensure it is set before any
+// LangGraph/LangChain modules are evaluated.
+import { webcrypto } from 'crypto';
+if (!globalThis.crypto) {
+  (globalThis as unknown as { crypto: Crypto }).crypto = webcrypto as unknown as Crypto;
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';

@@ -156,3 +156,15 @@ export const notifications = pgTable('notifications', {
 });
 
 export type Notification = typeof notifications.$inferSelect;
+
+// ─── Agent Memory ─────────────────────────────────────────────────────────────
+
+export const agentMemory = pgTable('agent_memory', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  key: text('key').notNull(),
+  value: text('value').notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export type AgentMemory = typeof agentMemory.$inferSelect;

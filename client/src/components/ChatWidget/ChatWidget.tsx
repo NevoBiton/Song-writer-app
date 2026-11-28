@@ -7,11 +7,35 @@ import { useAuth } from '@/context/AuthContext';
 import { getAvatarUrl } from '@/components/profile/ProfileModal';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { AgentSongListCard, SongItem } from './AgentSongListCard';
+
+interface SongListData {
+  type: 'song_list';
+  songs: SongItem[];
+  total: number;
+}
+
+interface AwaitingApprovalData {
+  type: 'awaiting_approval';
+  threadId: string;
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+type StructuredData = SongListData | AwaitingApprovalData;
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  data?: StructuredData;
 }
+
+const MODELS = [
+  { id: 'claude-haiku-4-5', label: 'Claude' },
+  { id: 'gpt-4o-mini',      label: 'GPT-4o' },
+] as const;
+
+type ModelId = typeof MODELS[number]['id'];
 
 const SUGGESTED_EN = [
   'Show my songs',
@@ -35,6 +59,8 @@ export function ChatWidget() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [model, setModel] = useState<ModelId>('claude-haiku-4-5');
+  const [pendingApproval, setPendingApproval] = useState<AwaitingApprovalData | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -67,11 +93,37 @@ export function ChatWidget() {
     setInput('');
     setLoading(true);
     try {
-      const { data } = await api.post<{ reply: string }>('/agent/chat', {
+      const { data } = await api.post<{ reply: string; data?: StructuredData }>('/agent/chat', {
         messages: updatedMessages,
         lang: uiLang,
+        model,
       });
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply, data: data.data }]);
+      if (data.data?.type === 'awaiting_approval') {
+        setPendingApproval(data.data);
+      }
+    } catch {
+      toast.error(t.agentError);
+    } finally {
+      setLoading(false);
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    }
+  }
+
+  async function resume(confirmed: boolean) {
+    if (!pendingApproval || loading) return;
+    const approval = pendingApproval;
+    setPendingApproval(null);
+    setLoading(true);
+    try {
+      const { data } = await api.post<{ reply: string; data?: StructuredData }>('/agent/chat', {
+        messages,
+        lang: uiLang,
+        model,
+        threadId: approval.threadId,
+        resume: confirmed,
+      });
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply, data: data.data }]);
     } catch {
       toast.error(t.agentError);
     } finally {
@@ -100,10 +152,26 @@ export function ChatWidget() {
               </div>
               <p className="text-sm font-semibold text-foreground">{t.agentTitle}</p>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              {/* Model selector */}
+              <div className="flex items-center bg-muted rounded-full p-0.5 gap-0.5">
+                {MODELS.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => setModel(m.id)}
+                    className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors ${
+                      model === m.id
+                        ? 'bg-amber-400 text-gray-900'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
               {messages.length > 0 && (
                 <button
-                  onClick={() => setMessages([])}
+                  onClick={() => { setMessages([]); setPendingApproval(null); }}
                   className="text-muted-foreground hover:text-foreground transition-colors p-1"
                   title="Clear chat"
                 >
@@ -149,12 +217,37 @@ export function ChatWidget() {
                       </div>
                   }
                 </div>
-                <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap ${
-                  msg.role === 'user'
-                    ? 'bg-amber-400 text-gray-900 rounded-tr-sm'
-                    : 'bg-muted text-foreground rounded-tl-sm'
-                }`}>
-                  {msg.content}
+                <div className="flex flex-col gap-1.5 max-w-[80%]">
+                  {msg.content && (
+                    <div className={`rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap ${
+                      msg.role === 'user'
+                        ? 'bg-amber-400 text-gray-900 rounded-tr-sm'
+                        : 'bg-muted text-foreground rounded-tl-sm'
+                    }`}>
+                      {msg.content}
+                    </div>
+                  )}
+                  {msg.data?.type === 'song_list' && (
+                    <AgentSongListCard songs={msg.data.songs} total={msg.data.total} />
+                  )}
+                  {msg.data?.type === 'awaiting_approval' && pendingApproval && (
+                    <div className="flex gap-2 mt-1">
+                      <button
+                        onClick={() => resume(true)}
+                        disabled={loading}
+                        className="flex-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-50"
+                      >
+                        {uiLang === 'he' ? 'כן, מחק' : 'Yes, delete'}
+                      </button>
+                      <button
+                        onClick={() => resume(false)}
+                        disabled={loading}
+                        className="flex-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-colors disabled:opacity-50"
+                      >
+                        {uiLang === 'he' ? 'ביטול' : 'Cancel'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -185,11 +278,11 @@ export function ChatWidget() {
                 placeholder={t.agentShortPlaceholder}
                 rows={1}
                 className="resize-none !min-h-[36px] max-h-24 overflow-y-auto focus-visible:ring-amber-400 text-xs"
-                disabled={loading}
+                disabled={loading || !!pendingApproval}
               />
               <Button
                 onClick={() => sendMessage(input)}
-                disabled={!input.trim() || loading}
+                disabled={!input.trim() || loading || !!pendingApproval}
                 size="sm"
                 className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0 h-9 w-9 p-0 flex-shrink-0"
               >

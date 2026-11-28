@@ -14,7 +14,13 @@ export class AgentController {
 
   @Post('chat')
   async chat(@Body() dto: AgentChatDto, @Req() req: { user: JwtUser }) {
-    const reply = await this.agentService.chat(req.user.id, dto.messages, dto.lang ?? 'en');
-    return { reply };
+    return this.agentService.chat(
+      req.user.id,
+      dto.messages,
+      dto.lang ?? 'en',
+      dto.model ?? 'claude-haiku-4-5',
+      dto.threadId,
+      dto.resume,
+    );
   }
 }

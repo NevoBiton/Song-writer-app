@@ -1,281 +1,162 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Anthropic from '@anthropic-ai/sdk';
-import { eq } from 'drizzle-orm';
+import { ChatOpenAI } from '@langchain/openai';
+import { Command, INTERRUPT, isInterrupted } from '@langchain/langgraph';
+import { HumanMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
+import { eq, desc } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
-import { users } from '../db/schema';
-import { SongsService } from '../songs/songs.service';
-import { MessageDto } from './dto/agent-chat.dto';
+import { users, agentMemory } from '../db/schema';
+import { MessageDto, SupportedModel } from './dto/agent-chat.dto';
+import { StructuredData, RunContext } from './dto/structured-data.dto';
+import { ToolRegistry } from './tools/tool-registry.service';
+import { GuardrailsService } from './guardrails.service';
+import { SkillsService } from './skills.service';
+import { GraphService, InterruptValue } from './graph.service';
+
+export interface ChatResult {
+  reply: string;
+  data?: StructuredData;
+}
 
 @Injectable()
 export class AgentService {
-  private readonly logger = new Logger(AgentService.name);
-  private readonly client: Anthropic;
+  private readonly proxyUrl: string;
+  private readonly masterKey: string;
 
   constructor(
     private readonly config: ConfigService,
     private readonly db: DatabaseService,
-    private readonly songsService: SongsService,
+    private readonly toolRegistry: ToolRegistry,
+    private readonly guardrails: GuardrailsService,
+    private readonly skills: SkillsService,
+    private readonly graphService: GraphService,
   ) {
-    this.client = new Anthropic({
-      apiKey: this.config.get<string>('ANTHROPIC_API_KEY'),
+    this.proxyUrl = this.config.get<string>('LITELLM_PROXY_URL') ?? 'http://localhost:4000';
+    this.masterKey = this.config.get<string>('LITELLM_MASTER_KEY') ?? 'sk-wordchord-local';
+  }
+
+  private buildLlm(model: SupportedModel): ChatOpenAI {
+    return new ChatOpenAI({
+      modelName: model,
+      apiKey: this.masterKey,
+      configuration: { baseURL: this.proxyUrl },
     });
   }
 
-  private readonly tools: Anthropic.Tool[] = [
-    {
-      name: 'list_songs',
-      description: "List all songs in the user's library. Returns id, title, artist, key, capo, and updatedAt for each song.",
-      input_schema: {
-        type: 'object' as const,
-        properties: {},
-        required: [],
-      },
-    },
-    {
-      name: 'get_song_details',
-      description: 'Get full details of a specific song by its ID. Returns all song metadata plus section count.',
-      input_schema: {
-        type: 'object' as const,
-        properties: {
-          id: { type: 'string', description: 'The song ID' },
-        },
-        required: ['id'],
-      },
-    },
-    {
-      name: 'create_song',
-      description: "Create a new song in the user's library.",
-      input_schema: {
-        type: 'object' as const,
-        properties: {
-          title: { type: 'string', description: 'Song title (required)' },
-          artist: { type: 'string', description: 'Artist name (optional)' },
-          key: { type: 'string', description: 'Musical key, e.g. "Am", "G" (optional)' },
-          capo: { type: 'number', description: 'Capo fret number (optional, default 0)' },
-          language: {
-            type: 'string',
-            enum: ['en', 'he', 'mixed'],
-            description: 'Song language (optional, default "en")',
-          },
-        },
-        required: ['title'],
-      },
-    },
-    {
-      name: 'delete_song',
-      description: 'Move a song to the trash (soft delete). The user can restore it within 30 days.',
-      input_schema: {
-        type: 'object' as const,
-        properties: {
-          id: { type: 'string', description: 'The song ID to delete' },
-        },
-        required: ['id'],
-      },
-    },
-    {
-      name: 'update_song',
-      description: 'Update a song\'s metadata — title, artist, key, capo, or language. Only the fields you provide are changed.',
-      input_schema: {
-        type: 'object' as const,
-        properties: {
-          id: { type: 'string', description: 'The song ID to update' },
-          title: { type: 'string', description: 'New title (optional)' },
-          artist: { type: 'string', description: 'New artist name (optional)' },
-          key: { type: 'string', description: 'New musical key e.g. "Am", "G" (optional)' },
-          capo: { type: 'number', description: 'New capo fret number (optional)' },
-          language: { type: 'string', enum: ['en', 'he', 'mixed'], description: 'New language (optional)' },
-        },
-        required: ['id'],
-      },
-    },
-    {
-      name: 'list_deleted_songs',
-      description: 'List songs in the trash (deleted within the last 30 days) that can still be restored.',
-      input_schema: {
-        type: 'object' as const,
-        properties: {},
-        required: [],
-      },
-    },
-    {
-      name: 'restore_song',
-      description: 'Restore a deleted song from the trash back to the library.',
-      input_schema: {
-        type: 'object' as const,
-        properties: {
-          id: { type: 'string', description: 'The deleted song ID to restore' },
-        },
-        required: ['id'],
-      },
-    },
-  ];
-
-  async chat(userId: string, messages: MessageDto[], lang: 'en' | 'he' = 'en'): Promise<string> {
+  async chat(
+    userId: string,
+    messages: MessageDto[],
+    lang: 'en' | 'he' = 'en',
+    model: SupportedModel = 'claude-haiku-4-5',
+    threadId?: string,
+    resume?: boolean,
+  ): Promise<ChatResult> {
+    // 1. Load user info and persistent memories
     const [user] = await this.db.db.select({ username: users.username }).from(users).where(eq(users.id, userId));
     const username = user?.username ?? 'there';
 
-    const systemPrompt = `You are a friendly music assistant for WordChord, a chord notebook app. The user's name is ${username}.
+    const memories = await this.db.db
+      .select()
+      .from(agentMemory)
+      .where(eq(agentMemory.userId, userId))
+      .orderBy(desc(agentMemory.updatedAt))
+      .limit(30);
+    const memoriesBlock =
+      memories.length > 0
+        ? `\nWhat you remember about ${username} from previous conversations:\n${memories.map(m => `- ${m.key}: ${m.value}`).join('\n')}\n`
+        : '';
 
-You help manage their song library (list, view, create, delete songs) and answer music questions about chords, keys, progressions, and theory.
+    // 2. Extract current user message and run input guardrail
+    const input = messages[messages.length - 1]?.content ?? '';
+    const isResume = !!(threadId && resume !== undefined);
+
+    if (!isResume) {
+      this.guardrails.checkInput(input);
+    }
+
+    // 3. Detect matching skill and build injection block (skip on resume — no new user input)
+    const skillInjection = isResume ? '' : await this.skills.detect(input);
+    const skillBlock = skillInjection ? `\nFocused guidance for this request:\n${skillInjection}\n` : '';
+
+    // 4. System prompt
+    const systemPrompt = `You are a friendly music assistant for WordChord, a chord notebook app. The user's name is ${username}.
+${skillBlock}${memoriesBlock}
+You help manage their song library (list, view, create, update, delete, restore songs) and answer music questions about chords, keys, progressions, and theory from your own knowledge.
 
 Formatting rules — follow these strictly:
 - Plain text only. No markdown. No asterisks, no hashtags, no dashes, no bold.
-- When listing songs use a simple numbered list: "1. Title (Artist, Key: Am, Capo: 2)"
+- When the user asks to see their songs, call the list_songs tool and then reply with just a short confirmation like "Here are your songs" — the song list will be displayed as a card in the UI, so do not repeat all the song names in your text reply.
 - Omit any field that is empty or null — do not write "Artist: null".
 - Keep replies short and conversational.
+- When the user mentions a specific song by name, use search_songs_semantic to find its ID — never call list_songs just to look up one song.
 - When deleting a song, always confirm the exact song name with the user before calling the delete tool.
-- When creating a song, proceed if you have a title. Only ask for more details if the user seems to want them.
+- When creating a song, only call create_song when the user explicitly says they are ready to save it, or when you have guided them through the full composition process.
+- Any time the user reveals something personal about themselves, call remember_fact — once per distinct fact. Use your judgment: if knowing this in a future conversation would make you more helpful or personal, save it. Never say "I noted" or announce it. Always store the value in English.
 
 Language: ALWAYS respond in ${lang === 'he' ? 'Hebrew (עברית)' : 'English'}, regardless of what language the user writes in.`;
 
-    const claudeMessages: Anthropic.MessageParam[] = messages.map(m => ({
-      role: m.role,
-      content: m.content,
-    }));
+    // 5. Build tools and graph
+    const runContext: RunContext = {};
+    const tools = this.toolRegistry.build(userId, runContext);
+    const graph = this.graphService.build(this.buildLlm(model), tools, systemPrompt);
 
-    let iterations = 0;
-    const maxIterations = 10;
+    // Each fresh conversation gets its own thread; interrupted threads reuse theirs
+    const activeThreadId = threadId ?? `${userId}-${Date.now()}`;
+    const config = { configurable: { thread_id: activeThreadId }, recursionLimit: 25 };
 
-    while (iterations < maxIterations) {
-      iterations++;
+    // 6. Invoke graph — resume if thread is interrupted, otherwise start fresh
+    let result: unknown;
 
-      const response = await this.client.messages.create({
-        model: 'claude-haiku-4-5',
-        max_tokens: 1024,
-        system: systemPrompt,
-        tools: this.tools,
-        messages: claudeMessages,
-      });
-
-      if (response.stop_reason === 'end_turn') {
-        const textBlock = response.content.find(b => b.type === 'text');
-        return textBlock ? (textBlock as Anthropic.TextBlock).text : '';
-      }
-
-      if (response.stop_reason === 'tool_use') {
-        claudeMessages.push({ role: 'assistant', content: response.content });
-
-        const toolResults: Anthropic.ToolResultBlockParam[] = [];
-
-        for (const block of response.content) {
-          if (block.type !== 'tool_use') continue;
-
-          const toolUse = block as Anthropic.ToolUseBlock;
-          this.logger.debug(`Tool call: ${toolUse.name} input=${JSON.stringify(toolUse.input)}`);
-
-          let result: string;
-          try {
-            result = await this.executeTool(toolUse.name, toolUse.input as Record<string, unknown>, userId);
-          } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : 'Unknown error';
-            result = `Error: ${message}`;
-          }
-
-          toolResults.push({
-            type: 'tool_result',
-            tool_use_id: toolUse.id,
-            content: result,
-          });
-        }
-
-        claudeMessages.push({ role: 'user', content: toolResults });
-        continue;
-      }
-
-      break;
+    if (threadId && resume !== undefined) {
+      // Resume a paused graph (user confirmed or cancelled the destructive action)
+      result = await graph.invoke(new Command({ resume }), config);
+    } else {
+      // Build message history — context management: keep last 20 messages max
+      const historyMessages = messages.slice(0, -1).slice(-20);
+      const chatHistory: BaseMessage[] = historyMessages.map(m =>
+        m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content),
+      );
+      result = await graph.invoke(
+        { messages: [...chatHistory, new HumanMessage(input)] },
+        config,
+      );
     }
 
-    return 'I was unable to complete your request. Please try again.';
-  }
+    // 7. Check if the graph paused at a destructive tool and needs confirmation
+    if (isInterrupted(result)) {
+      const iv = result[INTERRUPT][0].value as InterruptValue;
+      const confirmMsg = lang === 'he'
+        ? 'רגע לפני שמבצעים — האם אתה בטוח שברצונך למחוק שיר זה?'
+        : 'Just to confirm — are you sure you want to delete this song?';
 
-  private async executeTool(name: string, input: Record<string, unknown>, userId: string): Promise<string> {
-    switch (name) {
-      case 'list_songs': {
-        const songList = await this.songsService.findAll(userId);
-        if (songList.length === 0) return 'The library is empty — no songs yet.';
-        const lines = songList.map((s, i) => {
-          const parts: string[] = [];
-          if (s.artist) parts.push(s.artist);
-          if (s.key) parts.push(`Key: ${s.key}`);
-          if (s.capo) parts.push(`Capo: ${s.capo}`);
-          const meta = parts.length ? ` (${parts.join(', ')})` : '';
-          return `${i + 1}. ${s.title}${meta} [id: ${s.id}]`;
-        });
-        return `${songList.length} song${songList.length !== 1 ? 's' : ''} in the library:\n${lines.join('\n')}`;
-      }
-
-      case 'get_song_details': {
-        const id = input['id'] as string;
-        const song = await this.songsService.findOne(id, userId);
-        const sections = Array.isArray(song.sections) ? song.sections : [];
-        const lines = [`Title: ${song.title}`];
-        if (song.artist) lines.push(`Artist: ${song.artist}`);
-        if (song.key) lines.push(`Key: ${song.key}`);
-        if (song.capo) lines.push(`Capo: ${song.capo}`);
-        lines.push(`Language: ${song.language}`);
-        lines.push(`Sections: ${sections.length}`);
-        lines.push(`ID: ${song.id}`);
-        return lines.join('\n');
-      }
-
-      case 'create_song': {
-        const song = await this.songsService.create(userId, {
-          title: input['title'] as string,
-          artist: input['artist'] as string | undefined,
-          key: input['key'] as string | undefined,
-          capo: input['capo'] as number | undefined,
-          language: (input['language'] as 'en' | 'he' | 'mixed') ?? 'en',
-          sections: [],
-        });
-        return `Created "${song.title}" (id: ${song.id})`;
-      }
-
-      case 'delete_song': {
-        const id = input['id'] as string;
-        await this.songsService.softDelete(id, userId);
-        return 'Song moved to trash. The user can restore it within 30 days.';
-      }
-
-      case 'update_song': {
-        const id = input['id'] as string;
-        const current = await this.songsService.findOne(id, userId);
-        const updated = await this.songsService.update(id, userId, {
-          title: (input['title'] as string | undefined) ?? current.title,
-          artist: (input['artist'] as string | undefined) ?? current.artist ?? undefined,
-          key: (input['key'] as string | undefined) ?? current.key ?? undefined,
-          capo: (input['capo'] as number | undefined) ?? current.capo ?? 0,
-          language: (input['language'] as string | undefined) ?? current.language ?? 'en',
-          sections: current.sections as unknown[],
-        });
-        const changes: string[] = [];
-        if (input['title']) changes.push(`title: "${updated.title}"`);
-        if (input['artist'] !== undefined) changes.push(`artist: "${updated.artist ?? 'removed'}"`);
-        if (input['key'] !== undefined) changes.push(`key: "${updated.key ?? 'removed'}"`);
-        if (input['capo'] !== undefined) changes.push(`capo: ${updated.capo}`);
-        if (input['language'] !== undefined) changes.push(`language: ${updated.language}`);
-        return `Updated "${updated.title}" — changed ${changes.join(', ')}.`;
-      }
-
-      case 'list_deleted_songs': {
-        const deleted = await this.songsService.listDeleted(userId);
-        if (deleted.length === 0) return 'The trash is empty.';
-        const lines = deleted.map((s, i) => {
-          const deletedDate = new Date(s.deletedAt).toLocaleDateString();
-          const artist = s.artist ? ` (${s.artist})` : '';
-          return `${i + 1}. ${s.title}${artist} — deleted ${deletedDate} [id: ${s.id}]`;
-        });
-        return `${deleted.length} song${deleted.length !== 1 ? 's' : ''} in trash:\n${lines.join('\n')}`;
-      }
-
-      case 'restore_song': {
-        const id = input['id'] as string;
-        const song = await this.songsService.restore(id, userId);
-        return `Restored "${song.title}" back to the library.`;
-      }
-
-      default:
-        return `Unknown tool: ${name}`;
+      return {
+        reply: confirmMsg,
+        data: {
+          type: 'awaiting_approval',
+          threadId: activeThreadId,
+          tool: iv.tool,
+          args: iv.args,
+        },
+      };
     }
+
+    // 8. Extract text from last AI message
+    const state = result as { messages: BaseMessage[] };
+    const lastMessage = state.messages.at(-1);
+    const content = lastMessage?.content;
+    const rawReply =
+      typeof content === 'string'
+        ? content
+        : Array.isArray(content)
+          ? (content as Array<{ type: string; text: string }>).find(b => b.type === 'text')?.text ?? ''
+          : '';
+
+    // 9. Output guardrail — sanitize before returning to client
+    const toolCallCount = state.messages.filter(
+      (m: { _getType?: () => string }) => m._getType?.() === 'tool',
+    ).length;
+    const reply = this.guardrails.checkOutput(rawReply, toolCallCount);
+
+    return { reply, data: runContext.structuredData };
   }
 }

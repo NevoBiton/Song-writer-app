@@ -92,6 +92,20 @@
       "when": 1795290593627,
       "tag": "0012_thick_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795695309315,
+      "tag": "0013_romantic_ironclad",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795705923172,
+      "tag": "0014_special_sentinels",
+      "breakpoints": true
     }
   ]
 }
