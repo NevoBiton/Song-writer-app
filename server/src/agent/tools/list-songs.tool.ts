@@ -17,7 +17,7 @@ export class ListSongsTool {
     const guardrails = this.guardrails;
     return new DynamicStructuredTool({
       name: 'list_songs',
-      description: "List all songs in the user's library. Returns title, artist, key, capo, and id for each song.",
+      description: "List ALL songs in the user's library. Only call this when the user explicitly asks to see their full song list. To find a specific song by name before deleting, updating, or getting details — use search_songs_semantic instead.",
       schema: z.object({}),
       func: async () => {
         const songs = await songsService.findAll(userId);

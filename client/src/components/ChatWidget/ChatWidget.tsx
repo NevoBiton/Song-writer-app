@@ -15,7 +15,14 @@ interface SongListData {
   total: number;
 }
 
-type StructuredData = SongListData;
+interface AwaitingApprovalData {
+  type: 'awaiting_approval';
+  threadId: string;
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+type StructuredData = SongListData | AwaitingApprovalData;
 
 interface Message {
   role: 'user' | 'assistant';
@@ -53,6 +60,7 @@ export function ChatWidget() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [model, setModel] = useState<ModelId>('claude-haiku-4-5');
+  const [pendingApproval, setPendingApproval] = useState<AwaitingApprovalData | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -89,6 +97,31 @@ export function ChatWidget() {
         messages: updatedMessages,
         lang: uiLang,
         model,
+      });
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply, data: data.data }]);
+      if (data.data?.type === 'awaiting_approval') {
+        setPendingApproval(data.data);
+      }
+    } catch {
+      toast.error(t.agentError);
+    } finally {
+      setLoading(false);
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    }
+  }
+
+  async function resume(confirmed: boolean) {
+    if (!pendingApproval || loading) return;
+    const approval = pendingApproval;
+    setPendingApproval(null);
+    setLoading(true);
+    try {
+      const { data } = await api.post<{ reply: string; data?: StructuredData }>('/agent/chat', {
+        messages,
+        lang: uiLang,
+        model,
+        threadId: approval.threadId,
+        resume: confirmed,
       });
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply, data: data.data }]);
     } catch {
@@ -138,7 +171,7 @@ export function ChatWidget() {
               </div>
               {messages.length > 0 && (
                 <button
-                  onClick={() => setMessages([])}
+                  onClick={() => { setMessages([]); setPendingApproval(null); }}
                   className="text-muted-foreground hover:text-foreground transition-colors p-1"
                   title="Clear chat"
                 >
@@ -197,6 +230,24 @@ export function ChatWidget() {
                   {msg.data?.type === 'song_list' && (
                     <AgentSongListCard songs={msg.data.songs} total={msg.data.total} />
                   )}
+                  {msg.data?.type === 'awaiting_approval' && pendingApproval && (
+                    <div className="flex gap-2 mt-1">
+                      <button
+                        onClick={() => resume(true)}
+                        disabled={loading}
+                        className="flex-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-50"
+                      >
+                        {uiLang === 'he' ? 'כן, מחק' : 'Yes, delete'}
+                      </button>
+                      <button
+                        onClick={() => resume(false)}
+                        disabled={loading}
+                        className="flex-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-colors disabled:opacity-50"
+                      >
+                        {uiLang === 'he' ? 'ביטול' : 'Cancel'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -227,11 +278,11 @@ export function ChatWidget() {
                 placeholder={t.agentShortPlaceholder}
                 rows={1}
                 className="resize-none !min-h-[36px] max-h-24 overflow-y-auto focus-visible:ring-amber-400 text-xs"
-                disabled={loading}
+                disabled={loading || !!pendingApproval}
               />
               <Button
                 onClick={() => sendMessage(input)}
-                disabled={!input.trim() || loading}
+                disabled={!input.trim() || loading || !!pendingApproval}
                 size="sm"
                 className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-bold border-0 h-9 w-9 p-0 flex-shrink-0"
               >
