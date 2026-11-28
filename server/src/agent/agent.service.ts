@@ -10,6 +10,7 @@ import { MessageDto, SupportedModel } from './dto/agent-chat.dto';
 import { StructuredData, RunContext } from './dto/structured-data.dto';
 import { ToolRegistry } from './tools/tool-registry.service';
 import { GuardrailsService } from './guardrails.service';
+import { SkillsService } from './skills.service';
 
 export interface ChatResult {
   reply: string;
@@ -26,6 +27,7 @@ export class AgentService {
     private readonly db: DatabaseService,
     private readonly toolRegistry: ToolRegistry,
     private readonly guardrails: GuardrailsService,
+    private readonly skills: SkillsService,
   ) {
     this.proxyUrl = this.config.get<string>('LITELLM_PROXY_URL') ?? 'http://localhost:4000';
     this.masterKey = this.config.get<string>('LITELLM_MASTER_KEY') ?? 'sk-wordchord-local';
@@ -55,9 +57,17 @@ export class AgentService {
         ? `\nWhat you remember about ${username} from previous conversations:\n${memories.map(m => `- ${m.key}: ${m.value}`).join('\n')}\n`
         : '';
 
-    // 2. System prompt
+    // 2. Extract current user message and run input guardrail before anything reaches the model
+    const input = messages[messages.length - 1]?.content ?? '';
+    this.guardrails.checkInput(input);
+
+    // 3. Detect matching skill and build injection block
+    const skillInjection = await this.skills.detect(input);
+    const skillBlock = skillInjection ? `\nFocused guidance for this request:\n${skillInjection}\n` : '';
+
+    // 4. System prompt
     const systemPrompt = `You are a friendly music assistant for WordChord, a chord notebook app. The user's name is ${username}.
-${memoriesBlock}
+${skillBlock}${memoriesBlock}
 You help manage their song library (list, view, create, update, delete, restore songs) and answer music questions about chords, keys, progressions, and theory from your own knowledge.
 
 Formatting rules — follow these strictly:
@@ -66,21 +76,18 @@ Formatting rules — follow these strictly:
 - Omit any field that is empty or null — do not write "Artist: null".
 - Keep replies short and conversational.
 - When deleting a song, always confirm the exact song name with the user before calling the delete tool.
-- When creating a song, proceed if you have a title. Only ask for more details if the user seems to want them.
+- When creating a song, only call create_song when the user explicitly says they are ready to save it, or when you have guided them through the full composition process.
 - Any time the user reveals something personal about themselves, call remember_fact — once per distinct fact. Use your judgment: if knowing this in a future conversation would make you more helpful or personal, save it. Never say "I noted" or announce it. Always store the value in English.
 
 Language: ALWAYS respond in ${lang === 'he' ? 'Hebrew (עברית)' : 'English'}, regardless of what language the user writes in.`;
 
-    // 3. Extract current user message and run input guardrail before anything reaches the model
-    const input = messages[messages.length - 1]?.content ?? '';
-    this.guardrails.checkInput(input);
 
-    // 4. Build tools — userId and runContext captured in closures, no config passing needed
+    // 5. Build tools — userId and runContext captured in closures, no config passing needed
     const runContext: RunContext = {};
     const tools = this.toolRegistry.build(userId, runContext);
     const agent = createReactAgent({ llm: this.buildLlm(model), tools });
 
-    // 5. Build message array — context management: keep last 20 messages max
+    // 6. Build message array — context management: keep last 20 messages max
     const historyMessages = messages.slice(0, -1).slice(-20);
     const chatHistory: BaseMessage[] = historyMessages.map(m =>
       m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content),

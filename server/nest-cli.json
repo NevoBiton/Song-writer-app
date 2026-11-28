@@ -4,7 +4,8 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "assets": [
-      { "include": "agent/knowledge/*.md", "watchAssets": true }
+      { "include": "agent/knowledge/*.md", "watchAssets": true },
+      { "include": "agent/skills/*.md", "watchAssets": true }
     ]
   }
 }

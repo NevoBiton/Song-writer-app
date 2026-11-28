@@ -17,6 +17,7 @@ import { EmbeddingService } from "./embedding.service";
 import { SearchSongsSemanticTool } from "./tools/search-songs-semantic.tool";
 import { KnowledgeService } from "./knowledge.service";
 import { SearchKnowledgeTool } from "./tools/search-knowledge.tool";
+import { SkillsService } from "./skills.service";
 
 @Module({
   imports: [AuthModule, SongsModule],
@@ -24,6 +25,7 @@ import { SearchKnowledgeTool } from "./tools/search-knowledge.tool";
   providers: [
     AgentService,
     GuardrailsService,
+    SkillsService,
     EmbeddingService,
     KnowledgeService,
     SearchSongsSemanticTool,
