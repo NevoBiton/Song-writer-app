@@ -12,8 +12,18 @@ export interface SongListData {
   total: number;
 }
 
+export interface AwaitingApprovalData {
+  type: 'awaiting_approval';
+  /** Thread ID the client must send back to resume the graph. */
+  threadId: string;
+  /** The destructive tool that was about to run. */
+  tool: string;
+  /** The arguments that will be passed to the tool on confirmation. */
+  args: Record<string, unknown>;
+}
+
 // Union type — extend here when new structured responses are added
-export type StructuredData = SongListData;
+export type StructuredData = SongListData | AwaitingApprovalData;
 
 // Side-channel context passed to every tool via config.configurable
 export interface RunContext {

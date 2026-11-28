@@ -18,12 +18,14 @@ import { SearchSongsSemanticTool } from "./tools/search-songs-semantic.tool";
 import { KnowledgeService } from "./knowledge.service";
 import { SearchKnowledgeTool } from "./tools/search-knowledge.tool";
 import { SkillsService } from "./skills.service";
+import { GraphService } from "./graph.service";
 
 @Module({
   imports: [AuthModule, SongsModule],
   controllers: [AgentController],
   providers: [
     AgentService,
+    GraphService,
     GuardrailsService,
     SkillsService,
     EmbeddingService,
